@@ -232,16 +232,20 @@
     <div class="right-col">
       <div class="card">
         <label>Import image &amp; replace whiteboard</label>
-        <p class="crop-hint">Load an image, crop to 384×256 (3:2). Game uses binary (on/off) only; image is thresholded. Rotate as needed, then replace the selected whiteboard and save.</p>
+        <p class="crop-hint">Load an image, crop to 384×256 or 256×384. Game uses binary (on/off) only; image is thresholded. Rotate as needed, then replace the selected whiteboard and save.</p>
         <input type="file" id="imageFile" accept="image/*">
         <div id="cropSection" class="crop-section">
+          <div class="row" style="margin-top: 0.35rem; align-items: center;">
+            <span class="crop-hint" style="margin: 0;">Crop aspect:</span>
+            <div id="importAspectRow" class="index-row" style="margin: 0;"></div>
+          </div>
           <div id="cropContainer" class="crop-container">
             <img id="cropImage" alt="Crop source">
             <div class="crop-overlay">
               <div id="cropBox" class="crop-box"></div>
             </div>
           </div>
-          <p class="crop-hint">Drag the crop box to align. Resolution 384×256. Rotate this image before replacing:</p>
+          <p class="crop-hint">Drag the crop box to align. Rotate this image before replacing:</p>
           <div class="row" style="margin-top: 0.35rem; align-items: center;">
             <span class="crop-hint" style="margin: 0;">Image rotation:</span>
             <div id="importRotateRow" class="index-row" style="margin: 0;"></div>
@@ -277,6 +281,7 @@
       const btnReplace = document.getElementById('btnReplace');
       const btnSaveBpex = document.getElementById('btnSaveBpex');
       const importRotateRow = document.getElementById('importRotateRow');
+      const importAspectRow = document.getElementById('importAspectRow');
 
       let lastBuffer = null;
       let lastBpexFileName = '';
@@ -284,6 +289,7 @@
       let whiteboardRotations = [];
       let currentIndex = 0;
       let importRotationDeg = 0;
+      let importCropAspect = 'landscape'; // 'landscape' 384×256 or 'portrait' 256×384
       let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
 
       function setStatus(msg, isError) {
@@ -525,7 +531,7 @@
         const img = cropImage;
         const nw = img.naturalWidth;
         const nh = img.naturalHeight;
-        const aspect = 384 / 256;
+        const aspect = importCropAspect === 'portrait' ? 256 / 384 : 384 / 256;
         let cw, ch;
         if (nw / nh >= aspect) {
           ch = nh;
@@ -572,23 +578,39 @@
           return;
         }
         const r = getCropInImageCoords();
+        const srcW = r.w;
+        const srcH = r.h;
         const tmp = document.createElement('canvas');
-        tmp.width = W;
-        tmp.height = H;
+        tmp.width = srcW;
+        tmp.height = srcH;
         const tctx = tmp.getContext('2d');
-        tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, W, H);
+        tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
         const totalRotation = (importRotationDeg + 180) % 360;
+        const rot90or270 = totalRotation === 90 || totalRotation === 270;
         const tmp2 = document.createElement('canvas');
-        tmp2.width = W;
-        tmp2.height = H;
+        tmp2.width = rot90or270 ? srcH : srcW;
+        tmp2.height = rot90or270 ? srcW : srcH;
         const tctx2 = tmp2.getContext('2d');
         if (totalRotation !== 0) {
-          tctx2.translate(W / 2, H / 2);
+          const cw = tmp2.width;
+          const ch = tmp2.height;
+          tctx2.translate(cw / 2, ch / 2);
           tctx2.rotate((totalRotation * Math.PI) / 180);
-          tctx2.translate(-W / 2, -H / 2);
+          tctx2.translate(-srcW / 2, -srcH / 2);
         }
         tctx2.drawImage(tmp, 0, 0);
-        let imageData = tctx2.getImageData(0, 0, W, H);
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = W;
+        outCanvas.height = H;
+        const outCtx = outCanvas.getContext('2d');
+        if (tmp2.width === W && tmp2.height === H) {
+          outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, W, H);
+        } else {
+          outCtx.translate(W, 0);
+          outCtx.rotate(90 * Math.PI / 180);
+          outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, H, W);
+        }
+        let imageData = outCtx.getImageData(0, 0, W, H);
         imageData = invertImageData(imageData); // invert imported image colors
         const pixelBytes = imageDataToPixelBuffer(imageData);
         lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
@@ -636,6 +658,26 @@
         });
       }
 
+      function setupImportAspectRow() {
+        importAspectRow.innerHTML = '';
+        [{ id: 'landscape', label: '384×256' }, { id: 'portrait', label: '256×384' }].forEach(function (opt) {
+          const b = document.createElement('button');
+          b.textContent = opt.label;
+          b.type = 'button';
+          b.dataset.aspect = opt.id;
+          b.classList.add('btn-secondary');
+          b.classList.toggle('active', importCropAspect === opt.id);
+          b.addEventListener('click', function () {
+            importCropAspect = opt.id;
+            importAspectRow.querySelectorAll('button').forEach(function (x) {
+              x.classList.toggle('active', x.dataset.aspect === importCropAspect);
+            });
+            if (cropSection.classList.contains('visible')) initCropBox();
+          });
+          importAspectRow.appendChild(b);
+        });
+      }
+
       function setupImportRotationRow() {
         importRotateRow.innerHTML = '';
         [0, 90, 180, 270].forEach(function (deg) {
@@ -661,14 +703,16 @@
         cropImage.onload = function () {
           URL.revokeObjectURL(url);
           cropSection.classList.add('visible');
-          initCropBox();
+          setupImportAspectRow();
           setupImportRotationRow();
+          initCropBox();
           updateImportButtons();
         };
         cropImage.src = url;
       });
 
       setupCropDrag();
+      setupImportAspectRow();
       setupImportRotationRow();
 
       fileInput.addEventListener('change', function () {
