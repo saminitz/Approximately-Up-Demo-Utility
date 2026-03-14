@@ -250,6 +250,17 @@
             <span class="crop-hint" style="margin: 0;">Image rotation:</span>
             <div id="importRotateRow" class="index-row" style="margin: 0;"></div>
           </div>
+          <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <span class="crop-hint" style="margin: 0;">Grayscale cutoff (0–255):</span>
+            <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px;">
+            <span class="crop-hint" id="importThresholdLabel" style="margin: 0; min-width: 2.5rem;">128</span>
+          </div>
+          <div class="row" style="margin-top: 0.35rem; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer;">
+              <input type="checkbox" id="livePreviewOnWhiteboardCheck" style="width: auto;">
+              <span class="crop-hint" style="margin: 0;">Live preview on selected whiteboard</span>
+            </label>
+          </div>
           <div class="row" style="margin-top: 0.5rem;">
             <button type="button" id="btnReplace" class="btn-secondary" disabled>Replace selected whiteboard</button>
             <button type="button" id="btnSaveBpex" class="btn-secondary" disabled>Save .bpex file</button>
@@ -290,7 +301,13 @@
       let currentIndex = 0;
       let importRotationDeg = 0;
       let importCropAspect = 'landscape'; // 'landscape' 384×256 or 'portrait' 256×384
+      let importThreshold = 128; // grayscale cutoff: >= this -> white (255), else black (0)
+      let livePreviewOnWhiteboard = false;
       let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+
+      const importThresholdSlider = document.getElementById('importThresholdSlider');
+      const importThresholdLabel = document.getElementById('importThresholdLabel');
+      const livePreviewOnWhiteboardCheck = document.getElementById('livePreviewOnWhiteboardCheck');
 
       function setStatus(msg, isError) {
         status.textContent = msg;
@@ -345,7 +362,8 @@
         return out;
       }
 
-      function imageDataToPixelBuffer(imageData) {
+      function imageDataToPixelBuffer(imageData, threshold) {
+        const t = threshold !== undefined ? threshold : 128;
         const arr = new Uint8Array(W * H);
         const data = imageData.data;
         for (let y = 0; y < H; y++) {
@@ -353,7 +371,7 @@
             const dstX = W - 1 - x;
             const j = (y * W + x) * 4;
             const gray = Math.round(0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2]);
-            arr[y * W + dstX] = gray >= 128 ? 255 : 0;
+            arr[y * W + dstX] = gray >= t ? 255 : 0;
           }
         }
         return arr;
@@ -378,6 +396,10 @@
           b.type = 'button';
           b.classList.toggle('active', i === currentIndex);
           b.addEventListener('click', function () {
+            if (livePreviewOnWhiteboard) {
+              livePreviewOnWhiteboard = false;
+              if (livePreviewOnWhiteboardCheck) livePreviewOnWhiteboardCheck.checked = false;
+            }
             currentIndex = i;
             indexRow.querySelectorAll('button').forEach(function (x, j) { x.classList.toggle('active', j === i); });
             drawCurrent();
@@ -397,14 +419,13 @@
       }
 
       function drawCurrent() {
-        if (whiteboardCanvases.length === 0) return;
-        const idx = Math.min(currentIndex, whiteboardCanvases.length - 1);
+        const idx = Math.min(currentIndex, Math.max(0, whiteboardCanvases.length - 1));
         currentIndex = idx;
         const rot = getRotationForIndex(idx);
         const size = getDisplaySize(rot);
         canvas.width = size.w;
         canvas.height = size.h;
-        ctx.fillStyle = '#2c2e33';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size.w, size.h);
         ctx.save();
         if (rot === 90 || rot === 270) {
@@ -417,6 +438,26 @@
           ctx.translate(W / 2, H / 2);
           ctx.rotate((rot * Math.PI) / 180);
           ctx.translate(-W / 2, -H / 2);
+        }
+        if (livePreviewOnWhiteboard && cropSection.classList.contains('visible') && cropImage.naturalWidth) {
+          const outCanvas = buildImportResultCanvas();
+          if (outCanvas) {
+            let imageData = outCanvas.getContext('2d').getImageData(0, 0, W, H);
+            imageData = invertImageData(imageData);
+            const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
+            const displayData = pixelBufferToImageData(pixelBytes, 0);
+            const tempC = document.createElement('canvas');
+            tempC.width = W;
+            tempC.height = H;
+            tempC.getContext('2d').putImageData(displayData, 0, 0);
+            ctx.drawImage(tempC, 0, 0);
+            ctx.restore();
+            return;
+          }
+        }
+        if (whiteboardCanvases.length === 0) {
+          ctx.restore();
+          return;
         }
         ctx.drawImage(whiteboardCanvases[idx], 0, 0);
         ctx.restore();
@@ -570,13 +611,8 @@
         };
       }
 
-      function replaceSelectedWhiteboard() {
-        if (!lastBuffer || !cropSection.classList.contains('visible')) return;
-        const slot = Math.min(currentIndex, Math.floor(lastBuffer.byteLength / PIXEL_CHUNK) - 1);
-        if (slot < 0) {
-          setStatus('No whiteboard slot to replace.', true);
-          return;
-        }
+      function buildImportResultCanvas() {
+        if (!cropSection.classList.contains('visible') || !cropImage.naturalWidth) return null;
         const r = getCropInImageCoords();
         const srcW = r.w;
         const srcH = r.h;
@@ -610,9 +646,21 @@
           outCtx.rotate(90 * Math.PI / 180);
           outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, H, W);
         }
-        let imageData = outCtx.getImageData(0, 0, W, H);
+        return outCanvas;
+      }
+
+      function replaceSelectedWhiteboard() {
+        if (!lastBuffer || !cropSection.classList.contains('visible')) return;
+        const slot = Math.min(currentIndex, Math.floor(lastBuffer.byteLength / PIXEL_CHUNK) - 1);
+        if (slot < 0) {
+          setStatus('No whiteboard slot to replace.', true);
+          return;
+        }
+        const outCanvas = buildImportResultCanvas();
+        if (!outCanvas) return;
+        let imageData = outCanvas.getContext('2d').getImageData(0, 0, W, H);
         imageData = invertImageData(imageData); // invert imported image colors
-        const pixelBytes = imageDataToPixelBuffer(imageData);
+        const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
         lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
         doParse(slot);
         setStatus('Replaced whiteboard ' + (slot + 1) + '. Save .bpex to download.');
@@ -621,6 +669,9 @@
 
       function saveBpex() {
         if (!lastBuffer) return;
+        if (cropSection.classList.contains('visible') && cropImage.naturalWidth) {
+          replaceSelectedWhiteboard();
+        }
         const blob = new Blob([lastBuffer], { type: 'application/octet-stream' });
         const a = document.createElement('a');
         a.download = lastBpexFileName || 'blueprint-extra.bpex';
@@ -652,9 +703,11 @@
           top = Math.max(rect.top, Math.min(rect.top + rect.h - bh, top));
           cropBox.style.left = left + 'px';
           cropBox.style.top = top + 'px';
+          if (livePreviewOnWhiteboard) drawCurrent();
         });
         document.addEventListener('mouseup', function () {
           cropDrag.active = false;
+          if (livePreviewOnWhiteboard) drawCurrent();
         });
       }
 
@@ -672,7 +725,7 @@
             importAspectRow.querySelectorAll('button').forEach(function (x) {
               x.classList.toggle('active', x.dataset.aspect === importCropAspect);
             });
-            if (cropSection.classList.contains('visible')) initCropBox();
+            if (cropSection.classList.contains('visible')) { initCropBox(); if (livePreviewOnWhiteboard) drawCurrent(); }
           });
           importAspectRow.appendChild(b);
         });
@@ -691,8 +744,23 @@
             importRotateRow.querySelectorAll('button').forEach(function (x) {
               x.classList.toggle('active', parseInt(x.textContent, 10) === deg);
             });
+            if (livePreviewOnWhiteboard) drawCurrent();
           });
           importRotateRow.appendChild(b);
+        });
+      }
+
+      if (importThresholdSlider) {
+        importThresholdSlider.addEventListener('input', function () {
+          importThreshold = parseInt(importThresholdSlider.value, 10);
+          if (importThresholdLabel) importThresholdLabel.textContent = importThreshold;
+          if (livePreviewOnWhiteboard) drawCurrent();
+        });
+      }
+      if (livePreviewOnWhiteboardCheck) {
+        livePreviewOnWhiteboardCheck.addEventListener('change', function () {
+          livePreviewOnWhiteboard = livePreviewOnWhiteboardCheck.checked;
+          drawCurrent();
         });
       }
 
@@ -707,6 +775,7 @@
           setupImportRotationRow();
           initCropBox();
           updateImportButtons();
+          if (livePreviewOnWhiteboard) drawCurrent();
         };
         cropImage.src = url;
       });
