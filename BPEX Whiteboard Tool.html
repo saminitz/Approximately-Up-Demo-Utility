@@ -1,816 +1,859 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Approximately Up Whiteboard Tool</title>
-  <style>
-    :root {
-      --bg: #1a1b1e;
-      --surface: #25262b;
-      --border: #373a40;
-      --text: #e8e9ed;
-      --muted: #868e96;
-      --accent: #4dabf7;
-      --accent-hover: #74c0fc;
-      --canvas-bg: #2c2e33;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 1.5rem;
-      min-height: 100vh;
-    }
-    .main-layout {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-    .main-layout .left-col {
-      flex: 0 1 auto;
-    }
-    .main-layout .right-col {
-      flex: 0 1 auto;
-    }
-    h1 {
-      font-size: 1.35rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem 0;
-      color: var(--text);
-    }
-    .sub {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 1.25rem;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-      margin-bottom: 1rem;
-      max-width: 640px;
-    }
-    label {
-      display: block;
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
-    }
-    input[type="file"] {
-      width: 100%;
-      padding: 0.5rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 0.9rem;
-    }
-    .row {
-      display: flex;
-      gap: 1rem;
-      align-items: flex-end;
-      flex-wrap: wrap;
-    }
-    .row > * { flex: 1 1 auto; }
-    .offset-wrap { max-width: 120px; }
-    input[type="number"] {
-      width: 100%;
-      padding: 0.5rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 0.9rem;
-    }
-    button {
-      background: var(--accent);
-      color: #0f1419;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover { background: var(--accent-hover); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary {
-      background: var(--border);
-      color: var(--text);
-    }
-    .btn-secondary:hover { background: #4b5263; }
-    #canvasWrap {
-      background: var(--canvas-bg);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 408px;
-      width: 408px;
-      border: 1px solid var(--border);
-      margin-top: 0.5rem;
-    }
-    canvas {
-      display: block;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
-    .info {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-top: 0.75rem;
-    }
-    .err { color: #fa5252; }
-    .ok { color: #69db7c; }
-    .index-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      margin-bottom: 0.5rem;
-    }
-    .index-row button {
-      min-width: 2rem;
-      padding: 0.35rem 0.5rem;
-    }
-    .index-row button.active {
-      background: var(--accent);
-      color: #0f1419;
-    }
-    .crop-section { display: none; margin-top: 0.75rem; }
-    .crop-section.visible { display: block; }
-    .crop-container {
-      position: relative;
-      max-width: 100%;
-      max-height: 320px;
-      background: var(--canvas-bg);
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      margin-top: 0.5rem;
-    }
-    .crop-container img {
-      display: block;
-      max-width: 100%;
-      max-height: 320px;
-      object-fit: contain;
-      width: auto;
-      height: auto;
-    }
-    .crop-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-    }
-    .crop-box {
-      position: absolute;
-      box-sizing: border-box;
-      border: 2px solid var(--accent);
-      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
-      cursor: move;
-      pointer-events: auto;
-    }
-    .crop-box::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border: 1px dashed rgba(255,255,255,0.5);
-      pointer-events: none;
-    }
-    .crop-hint {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 0.35rem;
-    }
-  </style>
-</head>
-<body>
-  <h1>Blueprint Whiteboard Extractor</h1>
-  <p class="sub">Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. Each 98,304 bytes = one 384×256 whiteboard. .bp and .bpmeta do not contain the drawing pixels.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Approximately Up Whiteboard Tool</title>
+    <style>
+      :root {
+        --bg: #1a1b1e;
+        --surface: #25262b;
+        --border: #373a40;
+        --text: #e8e9ed;
+        --muted: #868e96;
+        --accent: #4dabf7;
+        --accent-hover: #74c0fc;
+        --canvas-bg: #2c2e33;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 1.5rem;
+        min-height: 100vh;
+      }
+      .main-layout {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .main-layout .left-col {
+        flex: 0 1 auto;
+      }
+      .main-layout .right-col {
+        flex: 0 1 auto;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        color: var(--text);
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 1.25rem;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        max-width: 640px;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+      }
+      input[type="file"] {
+        width: 100%;
+        padding: 0.5rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+      .row {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1 1 auto;
+      }
+      .offset-wrap {
+        max-width: 120px;
+      }
+      input[type="number"] {
+        width: 100%;
+        padding: 0.5rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+      button {
+        background: var(--accent);
+        color: #0f1419;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--accent-hover);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-secondary {
+        background: var(--border);
+        color: var(--text);
+      }
+      .btn-secondary:hover {
+        background: #4b5263;
+      }
+      #canvasWrap {
+        background: var(--canvas-bg);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 408px;
+        width: 408px;
+        border: 1px solid var(--border);
+        margin-top: 0.5rem;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      .info {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-top: 0.75rem;
+      }
+      .err {
+        color: #fa5252;
+      }
+      .ok {
+        color: #69db7c;
+      }
+      .index-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.5rem;
+      }
+      .index-row button {
+        min-width: 2rem;
+        padding: 0.35rem 0.5rem;
+      }
+      .index-row button.active {
+        background: var(--accent);
+        color: #0f1419;
+      }
+      .crop-section {
+        display: none;
+        margin-top: 0.75rem;
+      }
+      .crop-section.visible {
+        display: block;
+      }
+      .crop-container {
+        position: relative;
+        max-width: 100%;
+        max-height: 320px;
+        background: var(--canvas-bg);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        margin-top: 0.5rem;
+      }
+      .crop-container img {
+        display: block;
+        max-width: 100%;
+        max-height: 320px;
+        object-fit: contain;
+        width: auto;
+        height: auto;
+      }
+      .crop-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+      }
+      .crop-box {
+        position: absolute;
+        box-sizing: border-box;
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        cursor: move;
+        pointer-events: auto;
+      }
+      .crop-box::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 1px dashed rgba(255, 255, 255, 0.5);
+        pointer-events: none;
+      }
+      .crop-hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 0.35rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Blueprint Whiteboard Extractor</h1>
+    <p class="sub">
+      Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. Each 98,304 bytes = one
+      384×256 whiteboard. .bp and .bpmeta do not contain the drawing pixels.
+    </p>
 
-  <div class="main-layout">
-    <div class="left-col">
-      <div class="card">
-        <label for="file">.bpex file (or raw pixel buffer)</label>
-        <input type="file" id="file" accept=".bpex">
-        <div class="row" style="margin-top: 0.75rem;">
-          <div>
-            <label>&nbsp;</label>
-            <button type="button" id="btnParse">Load &amp; extract</button>
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button type="button" id="btnExportAll" class="btn-secondary" disabled>Export all as PNG</button>
-          </div>
-        </div>
-        <p id="status" class="info"></p>
-      </div>
-
-      <div class="card">
-        <label>Whiteboards</label>
-        <div id="whiteboardIndex" class="index-row"></div>
-        <div id="canvasWrap">
-          <canvas id="c" width="384" height="256"></canvas>
-        </div>
-        <div class="row" style="margin-top: 0.5rem;">
-          <button type="button" id="btnRotate" class="btn-secondary" disabled>Rotate (0°)</button>
-          <button type="button" id="btnExportOne" class="btn-secondary" disabled>Export this PNG</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="right-col">
-      <div class="card">
-        <label>Import image &amp; replace whiteboard</label>
-        <p class="crop-hint">Load an image, crop to 384×256 or 256×384. Game uses binary (on/off) only; image is thresholded. Rotate as needed, then replace the selected whiteboard and save.</p>
-        <input type="file" id="imageFile" accept="image/*">
-        <div id="cropSection" class="crop-section">
-          <div class="row" style="margin-top: 0.35rem; align-items: center;">
-            <span class="crop-hint" style="margin: 0;">Crop aspect:</span>
-            <div id="importAspectRow" class="index-row" style="margin: 0;"></div>
-          </div>
-          <div id="cropContainer" class="crop-container">
-            <img id="cropImage" alt="Crop source">
-            <div class="crop-overlay">
-              <div id="cropBox" class="crop-box"></div>
+    <div class="main-layout">
+      <div class="left-col">
+        <div class="card">
+          <label for="file">.bpex file (or raw pixel buffer)</label>
+          <input type="file" id="file" accept=".bpex" />
+          <div class="row" style="margin-top: 0.75rem">
+            <div>
+              <label>&nbsp;</label>
+              <button type="button" id="btnParse">Load &amp; extract</button>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button type="button" id="btnExportAll" class="btn-secondary" disabled>Export all as PNG</button>
             </div>
           </div>
-          <p class="crop-hint">Drag the crop box to align. Rotate this image before replacing:</p>
-          <div class="row" style="margin-top: 0.35rem; align-items: center;">
-            <span class="crop-hint" style="margin: 0;">Image rotation:</span>
-            <div id="importRotateRow" class="index-row" style="margin: 0;"></div>
+          <p id="status" class="info"></p>
+        </div>
+
+        <div class="card">
+          <label>Whiteboards</label>
+          <div id="whiteboardIndex" class="index-row"></div>
+          <div id="canvasWrap">
+            <canvas id="c" width="384" height="256"></canvas>
           </div>
-          <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-            <span class="crop-hint" style="margin: 0;">Grayscale cutoff (0–255):</span>
-            <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px;">
-            <span class="crop-hint" id="importThresholdLabel" style="margin: 0; min-width: 2.5rem;">128</span>
+          <div class="row" style="margin-top: 0.5rem">
+            <button type="button" id="btnRotate" class="btn-secondary" disabled>Rotate (0°)</button>
+            <button type="button" id="btnExportOne" class="btn-secondary" disabled>Export this PNG</button>
           </div>
-          <div class="row" style="margin-top: 0.35rem; align-items: center;">
-            <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer;">
-              <input type="checkbox" id="livePreviewOnWhiteboardCheck" style="width: auto;">
-              <span class="crop-hint" style="margin: 0;">Live preview on selected whiteboard</span>
-            </label>
-          </div>
-          <div class="row" style="margin-top: 0.5rem;">
-            <button type="button" id="btnReplace" class="btn-secondary" disabled>Replace selected whiteboard</button>
-            <button type="button" id="btnSaveBpex" class="btn-secondary" disabled>Save .bpex file</button>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="card">
+          <label>Import image &amp; replace whiteboard</label>
+          <p class="crop-hint">
+            Load an image, crop to 384×256 or 256×384. Game uses binary (on/off) only; image is thresholded. Rotate as
+            needed, then replace the selected whiteboard and save.
+          </p>
+          <input type="file" id="imageFile" accept="image/*" />
+          <div id="cropSection" class="crop-section">
+            <div class="row" style="margin-top: 0.35rem; align-items: center">
+              <span class="crop-hint" style="margin: 0">Crop aspect:</span>
+              <div id="importAspectRow" class="index-row" style="margin: 0"></div>
+            </div>
+            <div id="cropContainer" class="crop-container">
+              <img id="cropImage" alt="Crop source" />
+              <div class="crop-overlay">
+                <div id="cropBox" class="crop-box"></div>
+              </div>
+            </div>
+            <p class="crop-hint">Drag the crop box to align. Rotate this image before replacing:</p>
+            <div class="row" style="margin-top: 0.35rem; align-items: center">
+              <span class="crop-hint" style="margin: 0">Image rotation:</span>
+              <div id="importRotateRow" class="index-row" style="margin: 0"></div>
+            </div>
+            <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
+              <span class="crop-hint" style="margin: 0">Grayscale cutoff (0–255):</span>
+              <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px" />
+              <span class="crop-hint" id="importThresholdLabel" style="margin: 0; min-width: 2.5rem">128</span>
+            </div>
+            <div class="row" style="margin-top: 0.35rem; align-items: center">
+              <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer">
+                <input type="checkbox" id="livePreviewOnWhiteboardCheck" style="width: auto" />
+                <span class="crop-hint" style="margin: 0">Live preview on selected whiteboard</span>
+              </label>
+            </div>
+            <div class="row" style="margin-top: 0.5rem">
+              <button type="button" id="btnReplace" class="btn-secondary" disabled>Replace selected whiteboard</button>
+              <button type="button" id="btnSaveBpex" class="btn-secondary" disabled>Save .bpex file</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    (function () {
-      const PIXEL_CHUNK = 384 * 256;
-      const W = 384, H = 256;
+    <script>
+      (function () {
+        const PIXEL_CHUNK = 384 * 256;
+        const W = 384,
+          H = 256;
 
-      const fileInput = document.getElementById('file');
-      const btnParse = document.getElementById('btnParse');
-      const btnRotate = document.getElementById('btnRotate');
-      const btnExportOne = document.getElementById('btnExportOne');
-      const btnExportAll = document.getElementById('btnExportAll');
-      const status = document.getElementById('status');
-      const indexRow = document.getElementById('whiteboardIndex');
-      const canvas = document.getElementById('c');
-      const ctx = canvas.getContext('2d');
-      const imageFileInput = document.getElementById('imageFile');
-      const cropSection = document.getElementById('cropSection');
-      const cropContainer = document.getElementById('cropContainer');
-      const cropImage = document.getElementById('cropImage');
-      const cropBox = document.getElementById('cropBox');
-      const btnReplace = document.getElementById('btnReplace');
-      const btnSaveBpex = document.getElementById('btnSaveBpex');
-      const importRotateRow = document.getElementById('importRotateRow');
-      const importAspectRow = document.getElementById('importAspectRow');
+        const fileInput = document.getElementById("file");
+        const btnParse = document.getElementById("btnParse");
+        const btnRotate = document.getElementById("btnRotate");
+        const btnExportOne = document.getElementById("btnExportOne");
+        const btnExportAll = document.getElementById("btnExportAll");
+        const status = document.getElementById("status");
+        const indexRow = document.getElementById("whiteboardIndex");
+        const canvas = document.getElementById("c");
+        const ctx = canvas.getContext("2d");
+        const imageFileInput = document.getElementById("imageFile");
+        const cropSection = document.getElementById("cropSection");
+        const cropContainer = document.getElementById("cropContainer");
+        const cropImage = document.getElementById("cropImage");
+        const cropBox = document.getElementById("cropBox");
+        const btnReplace = document.getElementById("btnReplace");
+        const btnSaveBpex = document.getElementById("btnSaveBpex");
+        const importRotateRow = document.getElementById("importRotateRow");
+        const importAspectRow = document.getElementById("importAspectRow");
 
-      let lastBuffer = null;
-      let lastBpexFileName = '';
-      let whiteboardCanvases = [];
-      let whiteboardRotations = [];
-      let currentIndex = 0;
-      let importRotationDeg = 0;
-      let importCropAspect = 'landscape'; // 'landscape' 384×256 or 'portrait' 256×384
-      let importThreshold = 128; // grayscale cutoff: >= this -> white (255), else black (0)
-      let livePreviewOnWhiteboard = false;
-      let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+        let lastBuffer = null;
+        let lastBpexFileName = "";
+        let whiteboardCanvases = [];
+        let whiteboardRotations = [];
+        let currentIndex = 0;
+        let importRotationDeg = 0;
+        let importCropAspect = "landscape"; // 'landscape' 384×256 or 'portrait' 256×384
+        let importThreshold = 128; // grayscale cutoff: >= this -> white (255), else black (0)
+        let livePreviewOnWhiteboard = false;
+        let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
 
-      const importThresholdSlider = document.getElementById('importThresholdSlider');
-      const importThresholdLabel = document.getElementById('importThresholdLabel');
-      const livePreviewOnWhiteboardCheck = document.getElementById('livePreviewOnWhiteboardCheck');
+        const importThresholdSlider = document.getElementById("importThresholdSlider");
+        const importThresholdLabel = document.getElementById("importThresholdLabel");
+        const livePreviewOnWhiteboardCheck = document.getElementById("livePreviewOnWhiteboardCheck");
 
-      function setStatus(msg, isError) {
-        status.textContent = msg;
-        status.className = 'info ' + (isError ? 'err' : 'ok');
-      }
-
-      function updateImportButtons() {
-        const hasBpex = lastBuffer && lastBuffer.byteLength > 0;
-        const hasImage = cropSection.classList.contains('visible');
-        btnReplace.disabled = !hasBpex || !hasImage;
-        btnSaveBpex.disabled = !hasBpex;
-      }
-
-      function pixelBufferToImageData(buf, offset) {
-        const arr = new Uint8ClampedArray(W * H * 4);
-        for (let y = 0; y < H; y++) {
-          for (let x = 0; x < W; x++) {
-            const srcX = W - 1 - x;
-            const v = 255 - buf[offset + y * W + srcX]; // invert .bpex colors
-            const j = (y * W + x) * 4;
-            arr[j] = arr[j + 1] = arr[j + 2] = v;
-            arr[j + 3] = 255;
-          }
+        function setStatus(msg, isError) {
+          status.textContent = msg;
+          status.className = "info " + (isError ? "err" : "ok");
         }
-        return new ImageData(arr, W, H);
-      }
 
-      function invertImageData(imageData) {
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          d[i] = 255 - d[i];
-          d[i + 1] = 255 - d[i + 1];
-          d[i + 2] = 255 - d[i + 2];
+        function updateImportButtons() {
+          const hasBpex = lastBuffer && lastBuffer.byteLength > 0;
+          const hasImage = cropSection.classList.contains("visible");
+          btnReplace.disabled = !hasBpex || !hasImage;
+          btnSaveBpex.disabled = !hasBpex;
         }
-        return imageData;
-      }
 
-      function extractWhiteboards(buffer) {
-        const count = Math.floor(buffer.byteLength / PIXEL_CHUNK);
-        if (count === 0) return [];
-        const arr = new Uint8Array(buffer);
-        const out = [];
-        for (let n = 0; n < count; n++) {
-          const off = n * PIXEL_CHUNK;
-          const c = document.createElement('canvas');
-          c.width = W;
-          c.height = H;
-          const ictx = c.getContext('2d');
-          ictx.putImageData(pixelBufferToImageData(arr, off), 0, 0);
-          out.push(c);
-        }
-        return out;
-      }
-
-      function imageDataToPixelBuffer(imageData, threshold) {
-        const t = threshold !== undefined ? threshold : 128;
-        const arr = new Uint8Array(W * H);
-        const data = imageData.data;
-        for (let y = 0; y < H; y++) {
-          for (let x = 0; x < W; x++) {
-            const dstX = W - 1 - x;
-            const j = (y * W + x) * 4;
-            const gray = Math.round(0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2]);
-            arr[y * W + dstX] = gray >= t ? 255 : 0;
-          }
-        }
-        return arr;
-      }
-
-      function mergePixelsIntoBuffer(buffer, pixelBytes, slotIndex) {
-        const newBuf = new ArrayBuffer(buffer.byteLength);
-        const view = new Uint8Array(newBuf);
-        view.set(new Uint8Array(buffer));
-        const offset = slotIndex * PIXEL_CHUNK;
-        if (offset + PIXEL_CHUNK <= buffer.byteLength) {
-          view.set(pixelBytes, offset);
-        }
-        return newBuf;
-      }
-
-      function showIndex(count) {
-        indexRow.innerHTML = '';
-        for (let i = 0; i < count; i++) {
-          const b = document.createElement('button');
-          b.textContent = i + 1;
-          b.type = 'button';
-          b.classList.toggle('active', i === currentIndex);
-          b.addEventListener('click', function () {
-            if (livePreviewOnWhiteboard) {
-              livePreviewOnWhiteboard = false;
-              if (livePreviewOnWhiteboardCheck) livePreviewOnWhiteboardCheck.checked = false;
+        function pixelBufferToImageData(buf, offset) {
+          const arr = new Uint8ClampedArray(W * H * 4);
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const srcX = W - 1 - x;
+              const v = 255 - buf[offset + y * W + srcX]; // invert .bpex colors
+              const j = (y * W + x) * 4;
+              arr[j] = arr[j + 1] = arr[j + 2] = v;
+              arr[j + 3] = 255;
             }
-            currentIndex = i;
-            indexRow.querySelectorAll('button').forEach(function (x, j) { x.classList.toggle('active', j === i); });
-            drawCurrent();
-            btnRotate.textContent = 'Rotate (' + displayAngle() + '°)';
-          });
-          indexRow.appendChild(b);
+          }
+          return new ImageData(arr, W, H);
         }
-      }
 
-      function getRotationForIndex(i) {
-        return whiteboardRotations[i] !== undefined ? whiteboardRotations[i] : 180;
-      }
-
-      function getDisplaySize(deg) {
-        const d = deg !== undefined ? deg : getRotationForIndex(currentIndex);
-        return (d === 90 || d === 270) ? { w: H, h: W } : { w: W, h: H };
-      }
-
-      function drawCurrent() {
-        const idx = Math.min(currentIndex, Math.max(0, whiteboardCanvases.length - 1));
-        currentIndex = idx;
-        const rot = getRotationForIndex(idx);
-        const size = getDisplaySize(rot);
-        canvas.width = size.w;
-        canvas.height = size.h;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size.w, size.h);
-        ctx.save();
-        if (rot === 90 || rot === 270) {
-          const cx = size.w / 2;
-          const cy = size.h / 2;
-          ctx.translate(cx, cy);
-          ctx.rotate((rot * Math.PI) / 180);
-          ctx.translate(-W / 2, -H / 2);
-        } else {
-          ctx.translate(W / 2, H / 2);
-          ctx.rotate((rot * Math.PI) / 180);
-          ctx.translate(-W / 2, -H / 2);
+        function invertImageData(imageData) {
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            d[i] = 255 - d[i];
+            d[i + 1] = 255 - d[i + 1];
+            d[i + 2] = 255 - d[i + 2];
+          }
+          return imageData;
         }
-        if (livePreviewOnWhiteboard && cropSection.classList.contains('visible') && cropImage.naturalWidth) {
-          const outCanvas = buildImportResultCanvas();
-          if (outCanvas) {
-            let imageData = outCanvas.getContext('2d').getImageData(0, 0, W, H);
-            imageData = invertImageData(imageData);
-            const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
-            const displayData = pixelBufferToImageData(pixelBytes, 0);
-            const tempC = document.createElement('canvas');
-            tempC.width = W;
-            tempC.height = H;
-            tempC.getContext('2d').putImageData(displayData, 0, 0);
-            ctx.drawImage(tempC, 0, 0);
+
+        function extractWhiteboards(buffer) {
+          const count = Math.floor(buffer.byteLength / PIXEL_CHUNK);
+          if (count === 0) return [];
+          const arr = new Uint8Array(buffer);
+          const out = [];
+          for (let n = 0; n < count; n++) {
+            const off = n * PIXEL_CHUNK;
+            const c = document.createElement("canvas");
+            c.width = W;
+            c.height = H;
+            const ictx = c.getContext("2d");
+            ictx.putImageData(pixelBufferToImageData(arr, off), 0, 0);
+            out.push(c);
+          }
+          return out;
+        }
+
+        function imageDataToPixelBuffer(imageData, threshold) {
+          const t = threshold !== undefined ? threshold : 128;
+          const arr = new Uint8Array(W * H);
+          const data = imageData.data;
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const dstX = W - 1 - x;
+              const j = (y * W + x) * 4;
+              const gray = Math.round(0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2]);
+              arr[y * W + dstX] = gray >= t ? 255 : 0;
+            }
+          }
+          return arr;
+        }
+
+        function mergePixelsIntoBuffer(buffer, pixelBytes, slotIndex) {
+          const newBuf = new ArrayBuffer(buffer.byteLength);
+          const view = new Uint8Array(newBuf);
+          view.set(new Uint8Array(buffer));
+          const offset = slotIndex * PIXEL_CHUNK;
+          if (offset + PIXEL_CHUNK <= buffer.byteLength) {
+            view.set(pixelBytes, offset);
+          }
+          return newBuf;
+        }
+
+        function showIndex(count) {
+          indexRow.innerHTML = "";
+          for (let i = 0; i < count; i++) {
+            const b = document.createElement("button");
+            b.textContent = i + 1;
+            b.type = "button";
+            b.classList.toggle("active", i === currentIndex);
+            b.addEventListener("click", function () {
+              if (livePreviewOnWhiteboard) {
+                livePreviewOnWhiteboard = false;
+                if (livePreviewOnWhiteboardCheck) livePreviewOnWhiteboardCheck.checked = false;
+              }
+              currentIndex = i;
+              indexRow.querySelectorAll("button").forEach(function (x, j) {
+                x.classList.toggle("active", j === i);
+              });
+              drawCurrent();
+              btnRotate.textContent = "Rotate (" + displayAngle() + "°)";
+            });
+            indexRow.appendChild(b);
+          }
+        }
+
+        function getRotationForIndex(i) {
+          return whiteboardRotations[i] !== undefined ? whiteboardRotations[i] : 180;
+        }
+
+        function getDisplaySize(deg) {
+          const d = deg !== undefined ? deg : getRotationForIndex(currentIndex);
+          return d === 90 || d === 270 ? { w: H, h: W } : { w: W, h: H };
+        }
+
+        function drawCurrent() {
+          const idx = Math.min(currentIndex, Math.max(0, whiteboardCanvases.length - 1));
+          currentIndex = idx;
+          const rot = getRotationForIndex(idx);
+          const size = getDisplaySize(rot);
+          canvas.width = size.w;
+          canvas.height = size.h;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, size.w, size.h);
+          ctx.save();
+          if (rot === 90 || rot === 270) {
+            const cx = size.w / 2;
+            const cy = size.h / 2;
+            ctx.translate(cx, cy);
+            ctx.rotate((rot * Math.PI) / 180);
+            ctx.translate(-W / 2, -H / 2);
+          } else {
+            ctx.translate(W / 2, H / 2);
+            ctx.rotate((rot * Math.PI) / 180);
+            ctx.translate(-W / 2, -H / 2);
+          }
+          if (livePreviewOnWhiteboard && cropSection.classList.contains("visible") && cropImage.naturalWidth) {
+            const outCanvas = buildImportResultCanvas();
+            if (outCanvas) {
+              let imageData = outCanvas.getContext("2d").getImageData(0, 0, W, H);
+              imageData = invertImageData(imageData);
+              const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
+              const displayData = pixelBufferToImageData(pixelBytes, 0);
+              const tempC = document.createElement("canvas");
+              tempC.width = W;
+              tempC.height = H;
+              tempC.getContext("2d").putImageData(displayData, 0, 0);
+              ctx.drawImage(tempC, 0, 0);
+              ctx.restore();
+              return;
+            }
+          }
+          if (whiteboardCanvases.length === 0) {
             ctx.restore();
             return;
           }
-        }
-        if (whiteboardCanvases.length === 0) {
+          ctx.drawImage(whiteboardCanvases[idx], 0, 0);
           ctx.restore();
-          return;
         }
-        ctx.drawImage(whiteboardCanvases[idx], 0, 0);
-        ctx.restore();
-      }
 
-      function displayAngle() {
-        return (getRotationForIndex(currentIndex) + 180) % 360;
-      }
+        function displayAngle() {
+          return (getRotationForIndex(currentIndex) + 180) % 360;
+        }
 
-      function cycleRotation() {
-        while (whiteboardRotations.length <= currentIndex) {
-          whiteboardRotations.push(180);
+        function cycleRotation() {
+          while (whiteboardRotations.length <= currentIndex) {
+            whiteboardRotations.push(180);
+          }
+          whiteboardRotations[currentIndex] = (getRotationForIndex(currentIndex) + 90) % 360;
+          btnRotate.textContent = "Rotate (" + displayAngle() + "°)";
+          drawCurrent();
         }
-        whiteboardRotations[currentIndex] = (getRotationForIndex(currentIndex) + 90) % 360;
-        btnRotate.textContent = 'Rotate (' + displayAngle() + '°)';
-        drawCurrent();
-      }
 
-      function doParse(keepSelectedIndex) {
-        const raw = lastBuffer;
-        if (!raw) {
-          setStatus('Choose a .bpex file first.', true);
-          return;
+        function doParse(keepSelectedIndex) {
+          const raw = lastBuffer;
+          if (!raw) {
+            setStatus("Choose a .bpex file first.", true);
+            return;
+          }
+          whiteboardCanvases = extractWhiteboards(raw);
+          if (whiteboardCanvases.length === 0) {
+            setStatus("No whiteboard data (need multiple of 98,304 bytes).", true);
+            btnRotate.disabled = true;
+            btnExportOne.disabled = true;
+            btnExportAll.disabled = true;
+            indexRow.innerHTML = "";
+            canvas.width = W;
+            canvas.height = H;
+            ctx.fillStyle = "#2c2e33";
+            ctx.fillRect(0, 0, W, H);
+            return;
+          }
+          if (typeof keepSelectedIndex === "number") {
+            currentIndex = Math.min(keepSelectedIndex, whiteboardCanvases.length - 1);
+          } else {
+            currentIndex = 0;
+          }
+          while (whiteboardRotations.length < whiteboardCanvases.length) {
+            whiteboardRotations.push(180);
+          }
+          whiteboardRotations = whiteboardRotations.slice(0, whiteboardCanvases.length);
+          showIndex(whiteboardCanvases.length);
+          drawCurrent();
+          setStatus(
+            "Found " +
+              whiteboardCanvases.length +
+              " whiteboard(s). Total " +
+              whiteboardCanvases.length * PIXEL_CHUNK +
+              " bytes.",
+          );
+          btnRotate.disabled = false;
+          btnRotate.textContent = "Rotate (" + displayAngle() + "°)";
+          btnExportOne.disabled = false;
+          btnExportAll.disabled = false;
+          updateImportButtons();
         }
-        whiteboardCanvases = extractWhiteboards(raw);
-        if (whiteboardCanvases.length === 0) {
-          setStatus('No whiteboard data (need multiple of 98,304 bytes).', true);
-          btnRotate.disabled = true;
-          btnExportOne.disabled = true;
-          btnExportAll.disabled = true;
-          indexRow.innerHTML = '';
-          canvas.width = W;
-          canvas.height = H;
-          ctx.fillStyle = '#2c2e33';
-          ctx.fillRect(0, 0, W, H);
-          return;
-        }
-        if (typeof keepSelectedIndex === 'number') {
-          currentIndex = Math.min(keepSelectedIndex, whiteboardCanvases.length - 1);
-        } else {
-          currentIndex = 0;
-        }
-        while (whiteboardRotations.length < whiteboardCanvases.length) {
-          whiteboardRotations.push(180);
-        }
-        whiteboardRotations = whiteboardRotations.slice(0, whiteboardCanvases.length);
-        showIndex(whiteboardCanvases.length);
-        drawCurrent();
-        setStatus('Found ' + whiteboardCanvases.length + ' whiteboard(s). Total ' + (whiteboardCanvases.length * PIXEL_CHUNK) + ' bytes.');
-        btnRotate.disabled = false;
-        btnRotate.textContent = 'Rotate (' + displayAngle() + '°)';
-        btnExportOne.disabled = false;
-        btnExportAll.disabled = false;
-        updateImportButtons();
-      }
 
-      function drawWithRotation(srcCanvas, deg) {
-        const rot = deg !== undefined ? deg : getRotationForIndex(currentIndex);
-        const size = getDisplaySize(rot);
-        const c = document.createElement('canvas');
-        c.width = size.w;
-        c.height = size.h;
-        const cx = c.getContext('2d');
-        cx.fillStyle = '#2c2e33';
-        cx.fillRect(0, 0, size.w, size.h);
-        if (rot === 90 || rot === 270) {
-          const cx2 = size.w / 2;
-          const cy2 = size.h / 2;
-          cx.translate(cx2, cy2);
-          cx.rotate((rot * Math.PI) / 180);
-          cx.translate(-W / 2, -H / 2);
-        } else {
-          cx.translate(W / 2, H / 2);
-          cx.rotate((rot * Math.PI) / 180);
-          cx.translate(-W / 2, -H / 2);
+        function drawWithRotation(srcCanvas, deg) {
+          const rot = deg !== undefined ? deg : getRotationForIndex(currentIndex);
+          const size = getDisplaySize(rot);
+          const c = document.createElement("canvas");
+          c.width = size.w;
+          c.height = size.h;
+          const cx = c.getContext("2d");
+          cx.fillStyle = "#2c2e33";
+          cx.fillRect(0, 0, size.w, size.h);
+          if (rot === 90 || rot === 270) {
+            const cx2 = size.w / 2;
+            const cy2 = size.h / 2;
+            cx.translate(cx2, cy2);
+            cx.rotate((rot * Math.PI) / 180);
+            cx.translate(-W / 2, -H / 2);
+          } else {
+            cx.translate(W / 2, H / 2);
+            cx.rotate((rot * Math.PI) / 180);
+            cx.translate(-W / 2, -H / 2);
+          }
+          cx.drawImage(srcCanvas, 0, 0);
+          return c;
         }
-        cx.drawImage(srcCanvas, 0, 0);
-        return c;
-      }
 
-      function exportOnePng() {
-        if (whiteboardCanvases.length === 0) return;
-        const rotated = drawWithRotation(whiteboardCanvases[currentIndex], getRotationForIndex(currentIndex));
-        const a = document.createElement('a');
-        a.download = 'whiteboard-' + (currentIndex + 1) + '.png';
-        a.href = rotated.toDataURL('image/png');
-        a.click();
-      }
-
-      function exportAllPng() {
-        whiteboardCanvases.forEach(function (c, i) {
-          const rotated = drawWithRotation(c, getRotationForIndex(i));
-          const a = document.createElement('a');
-          a.download = 'whiteboard-' + (i + 1) + '.png';
-          a.href = rotated.toDataURL('image/png');
+        function exportOnePng() {
+          if (whiteboardCanvases.length === 0) return;
+          const rotated = drawWithRotation(whiteboardCanvases[currentIndex], getRotationForIndex(currentIndex));
+          const a = document.createElement("a");
+          a.download = "whiteboard-" + (currentIndex + 1) + ".png";
+          a.href = rotated.toDataURL("image/png");
           a.click();
-        });
-      }
-
-      function getImgDisplayRect() {
-        const cr = cropContainer.getBoundingClientRect();
-        const ir = cropImage.getBoundingClientRect();
-        return {
-          left: ir.left - cr.left,
-          top: ir.top - cr.top,
-          w: ir.width,
-          h: ir.height
-        };
-      }
-
-      function initCropBox() {
-        const img = cropImage;
-        const nw = img.naturalWidth;
-        const nh = img.naturalHeight;
-        const aspect = importCropAspect === 'portrait' ? 256 / 384 : 384 / 256;
-        let cw, ch;
-        if (nw / nh >= aspect) {
-          ch = nh;
-          cw = Math.round(nh * aspect);
-        } else {
-          cw = nw;
-          ch = Math.round(nw / aspect);
         }
-        const cx = Math.round((nw - cw) / 2);
-        const cy = Math.round((nh - ch) / 2);
-        const rect = getImgDisplayRect();
-        const scaleX = rect.w / nw;
-        const scaleY = rect.h / nh;
-        cropBox.style.width = Math.max(20, Math.round(cw * scaleX)) + 'px';
-        cropBox.style.height = Math.max(20, Math.round(ch * scaleY)) + 'px';
-        cropBox.style.left = (rect.left + Math.round(cx * scaleX)) + 'px';
-        cropBox.style.top = (rect.top + Math.round(cy * scaleY)) + 'px';
-      }
 
-      function getCropInImageCoords() {
-        const img = cropImage;
-        const nw = img.naturalWidth;
-        const nh = img.naturalHeight;
-        const rect = getImgDisplayRect();
-        const scaleX = nw / rect.w;
-        const scaleY = nh / rect.h;
-        const left = parseInt(cropBox.style.left || '0', 10);
-        const top = parseInt(cropBox.style.top || '0', 10);
-        const width = parseInt(cropBox.style.width || '0', 10);
-        const height = parseInt(cropBox.style.height || '0', 10);
-        return {
-          x: Math.max(0, Math.round((left - rect.left) * scaleX)),
-          y: Math.max(0, Math.round((top - rect.top) * scaleY)),
-          w: Math.min(nw, Math.round(width * scaleX)),
-          h: Math.min(nh, Math.round(height * scaleY))
-        };
-      }
-
-      function buildImportResultCanvas() {
-        if (!cropSection.classList.contains('visible') || !cropImage.naturalWidth) return null;
-        const r = getCropInImageCoords();
-        const srcW = r.w;
-        const srcH = r.h;
-        const tmp = document.createElement('canvas');
-        tmp.width = srcW;
-        tmp.height = srcH;
-        const tctx = tmp.getContext('2d');
-        tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
-        const totalRotation = (importRotationDeg + 180) % 360;
-        const rot90or270 = totalRotation === 90 || totalRotation === 270;
-        const tmp2 = document.createElement('canvas');
-        tmp2.width = rot90or270 ? srcH : srcW;
-        tmp2.height = rot90or270 ? srcW : srcH;
-        const tctx2 = tmp2.getContext('2d');
-        if (totalRotation !== 0) {
-          const cw = tmp2.width;
-          const ch = tmp2.height;
-          tctx2.translate(cw / 2, ch / 2);
-          tctx2.rotate((totalRotation * Math.PI) / 180);
-          tctx2.translate(-srcW / 2, -srcH / 2);
-        }
-        tctx2.drawImage(tmp, 0, 0);
-        const outCanvas = document.createElement('canvas');
-        outCanvas.width = W;
-        outCanvas.height = H;
-        const outCtx = outCanvas.getContext('2d');
-        if (tmp2.width === W && tmp2.height === H) {
-          outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, W, H);
-        } else {
-          outCtx.translate(W, 0);
-          outCtx.rotate(90 * Math.PI / 180);
-          outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, H, W);
-        }
-        return outCanvas;
-      }
-
-      function replaceSelectedWhiteboard() {
-        if (!lastBuffer || !cropSection.classList.contains('visible')) return;
-        const slot = Math.min(currentIndex, Math.floor(lastBuffer.byteLength / PIXEL_CHUNK) - 1);
-        if (slot < 0) {
-          setStatus('No whiteboard slot to replace.', true);
-          return;
-        }
-        const outCanvas = buildImportResultCanvas();
-        if (!outCanvas) return;
-        let imageData = outCanvas.getContext('2d').getImageData(0, 0, W, H);
-        imageData = invertImageData(imageData); // invert imported image colors
-        const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
-        lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
-        doParse(slot);
-        setStatus('Replaced whiteboard ' + (slot + 1) + '. Save .bpex to download.');
-        updateImportButtons();
-      }
-
-      function saveBpex() {
-        if (!lastBuffer) return;
-        if (cropSection.classList.contains('visible') && cropImage.naturalWidth) {
-          replaceSelectedWhiteboard();
-        }
-        const blob = new Blob([lastBuffer], { type: 'application/octet-stream' });
-        const a = document.createElement('a');
-        a.download = lastBpexFileName || 'blueprint-extra.bpex';
-        a.href = URL.createObjectURL(blob);
-        a.click();
-        URL.revokeObjectURL(a.href);
-        setStatus('Saved .bpex file.');
-      }
-
-      function setupCropDrag() {
-        cropBox.addEventListener('mousedown', function (e) {
-          if (e.button !== 0) return;
-          cropDrag.active = true;
-          cropDrag.startX = e.clientX;
-          cropDrag.startY = e.clientY;
-          cropDrag.startLeft = parseInt(cropBox.style.left || '0', 10);
-          cropDrag.startTop = parseInt(cropBox.style.top || '0', 10);
-        });
-        document.addEventListener('mousemove', function (e) {
-          if (!cropDrag.active) return;
-          const dx = e.clientX - cropDrag.startX;
-          const dy = e.clientY - cropDrag.startY;
-          const rect = getImgDisplayRect();
-          const bw = parseInt(cropBox.style.width || '0', 10);
-          const bh = parseInt(cropBox.style.height || '0', 10);
-          let left = cropDrag.startLeft + dx;
-          let top = cropDrag.startTop + dy;
-          left = Math.max(rect.left, Math.min(rect.left + rect.w - bw, left));
-          top = Math.max(rect.top, Math.min(rect.top + rect.h - bh, top));
-          cropBox.style.left = left + 'px';
-          cropBox.style.top = top + 'px';
-          if (livePreviewOnWhiteboard) drawCurrent();
-        });
-        document.addEventListener('mouseup', function () {
-          cropDrag.active = false;
-          if (livePreviewOnWhiteboard) drawCurrent();
-        });
-      }
-
-      function setupImportAspectRow() {
-        importAspectRow.innerHTML = '';
-        [{ id: 'landscape', label: '384×256' }, { id: 'portrait', label: '256×384' }].forEach(function (opt) {
-          const b = document.createElement('button');
-          b.textContent = opt.label;
-          b.type = 'button';
-          b.dataset.aspect = opt.id;
-          b.classList.add('btn-secondary');
-          b.classList.toggle('active', importCropAspect === opt.id);
-          b.addEventListener('click', function () {
-            importCropAspect = opt.id;
-            importAspectRow.querySelectorAll('button').forEach(function (x) {
-              x.classList.toggle('active', x.dataset.aspect === importCropAspect);
-            });
-            if (cropSection.classList.contains('visible')) { initCropBox(); if (livePreviewOnWhiteboard) drawCurrent(); }
+        function exportAllPng() {
+          whiteboardCanvases.forEach(function (c, i) {
+            const rotated = drawWithRotation(c, getRotationForIndex(i));
+            const a = document.createElement("a");
+            a.download = "whiteboard-" + (i + 1) + ".png";
+            a.href = rotated.toDataURL("image/png");
+            a.click();
           });
-          importAspectRow.appendChild(b);
-        });
-      }
+        }
 
-      function setupImportRotationRow() {
-        importRotateRow.innerHTML = '';
-        [0, 90, 180, 270].forEach(function (deg) {
-          const b = document.createElement('button');
-          b.textContent = deg + '°';
-          b.type = 'button';
-          b.classList.add('btn-secondary');
-          b.classList.toggle('active', importRotationDeg === deg);
-          b.addEventListener('click', function () {
-            importRotationDeg = deg;
-            importRotateRow.querySelectorAll('button').forEach(function (x) {
-              x.classList.toggle('active', parseInt(x.textContent, 10) === deg);
-            });
+        function getImgDisplayRect() {
+          const cr = cropContainer.getBoundingClientRect();
+          const ir = cropImage.getBoundingClientRect();
+          return {
+            left: ir.left - cr.left,
+            top: ir.top - cr.top,
+            w: ir.width,
+            h: ir.height,
+          };
+        }
+
+        function initCropBox() {
+          const img = cropImage;
+          const nw = img.naturalWidth;
+          const nh = img.naturalHeight;
+          const aspect = importCropAspect === "portrait" ? 256 / 384 : 384 / 256;
+          let cw, ch;
+          if (nw / nh >= aspect) {
+            ch = nh;
+            cw = Math.round(nh * aspect);
+          } else {
+            cw = nw;
+            ch = Math.round(nw / aspect);
+          }
+          const cx = Math.round((nw - cw) / 2);
+          const cy = Math.round((nh - ch) / 2);
+          const rect = getImgDisplayRect();
+          const scaleX = rect.w / nw;
+          const scaleY = rect.h / nh;
+          cropBox.style.width = Math.max(20, Math.round(cw * scaleX)) + "px";
+          cropBox.style.height = Math.max(20, Math.round(ch * scaleY)) + "px";
+          cropBox.style.left = rect.left + Math.round(cx * scaleX) + "px";
+          cropBox.style.top = rect.top + Math.round(cy * scaleY) + "px";
+        }
+
+        function getCropInImageCoords() {
+          const img = cropImage;
+          const nw = img.naturalWidth;
+          const nh = img.naturalHeight;
+          const rect = getImgDisplayRect();
+          const scaleX = nw / rect.w;
+          const scaleY = nh / rect.h;
+          const left = parseInt(cropBox.style.left || "0", 10);
+          const top = parseInt(cropBox.style.top || "0", 10);
+          const width = parseInt(cropBox.style.width || "0", 10);
+          const height = parseInt(cropBox.style.height || "0", 10);
+          return {
+            x: Math.max(0, Math.round((left - rect.left) * scaleX)),
+            y: Math.max(0, Math.round((top - rect.top) * scaleY)),
+            w: Math.min(nw, Math.round(width * scaleX)),
+            h: Math.min(nh, Math.round(height * scaleY)),
+          };
+        }
+
+        function buildImportResultCanvas() {
+          if (!cropSection.classList.contains("visible") || !cropImage.naturalWidth) return null;
+          const r = getCropInImageCoords();
+          const srcW = r.w;
+          const srcH = r.h;
+          const tmp = document.createElement("canvas");
+          tmp.width = srcW;
+          tmp.height = srcH;
+          const tctx = tmp.getContext("2d");
+          tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
+          const totalRotation = (importRotationDeg + 180) % 360;
+          const rot90or270 = totalRotation === 90 || totalRotation === 270;
+          const tmp2 = document.createElement("canvas");
+          tmp2.width = rot90or270 ? srcH : srcW;
+          tmp2.height = rot90or270 ? srcW : srcH;
+          const tctx2 = tmp2.getContext("2d");
+          if (totalRotation !== 0) {
+            const cw = tmp2.width;
+            const ch = tmp2.height;
+            tctx2.translate(cw / 2, ch / 2);
+            tctx2.rotate((totalRotation * Math.PI) / 180);
+            tctx2.translate(-srcW / 2, -srcH / 2);
+          }
+          tctx2.drawImage(tmp, 0, 0);
+          const outCanvas = document.createElement("canvas");
+          outCanvas.width = W;
+          outCanvas.height = H;
+          const outCtx = outCanvas.getContext("2d");
+          if (tmp2.width === W && tmp2.height === H) {
+            outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, W, H);
+          } else {
+            outCtx.translate(W, 0);
+            outCtx.rotate((90 * Math.PI) / 180);
+            outCtx.drawImage(tmp2, 0, 0, tmp2.width, tmp2.height, 0, 0, H, W);
+          }
+          return outCanvas;
+        }
+
+        function replaceSelectedWhiteboard() {
+          if (!lastBuffer || !cropSection.classList.contains("visible")) return;
+          const slot = Math.min(currentIndex, Math.floor(lastBuffer.byteLength / PIXEL_CHUNK) - 1);
+          if (slot < 0) {
+            setStatus("No whiteboard slot to replace.", true);
+            return;
+          }
+          const outCanvas = buildImportResultCanvas();
+          if (!outCanvas) return;
+          let imageData = outCanvas.getContext("2d").getImageData(0, 0, W, H);
+          imageData = invertImageData(imageData); // invert imported image colors
+          const pixelBytes = imageDataToPixelBuffer(imageData, importThreshold);
+          lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
+          doParse(slot);
+          setStatus("Replaced whiteboard " + (slot + 1) + ". Save .bpex to download.");
+          updateImportButtons();
+        }
+
+        function saveBpex() {
+          if (!lastBuffer) return;
+          if (cropSection.classList.contains("visible") && cropImage.naturalWidth) {
+            replaceSelectedWhiteboard();
+          }
+          const blob = new Blob([lastBuffer], { type: "application/octet-stream" });
+          const a = document.createElement("a");
+          a.download = lastBpexFileName || "blueprint-extra.bpex";
+          a.href = URL.createObjectURL(blob);
+          a.click();
+          URL.revokeObjectURL(a.href);
+          setStatus("Saved .bpex file.");
+        }
+
+        function setupCropDrag() {
+          cropBox.addEventListener("mousedown", function (e) {
+            if (e.button !== 0) return;
+            cropDrag.active = true;
+            cropDrag.startX = e.clientX;
+            cropDrag.startY = e.clientY;
+            cropDrag.startLeft = parseInt(cropBox.style.left || "0", 10);
+            cropDrag.startTop = parseInt(cropBox.style.top || "0", 10);
+          });
+          document.addEventListener("mousemove", function (e) {
+            if (!cropDrag.active) return;
+            const dx = e.clientX - cropDrag.startX;
+            const dy = e.clientY - cropDrag.startY;
+            const rect = getImgDisplayRect();
+            const bw = parseInt(cropBox.style.width || "0", 10);
+            const bh = parseInt(cropBox.style.height || "0", 10);
+            let left = cropDrag.startLeft + dx;
+            let top = cropDrag.startTop + dy;
+            left = Math.max(rect.left, Math.min(rect.left + rect.w - bw, left));
+            top = Math.max(rect.top, Math.min(rect.top + rect.h - bh, top));
+            cropBox.style.left = left + "px";
+            cropBox.style.top = top + "px";
             if (livePreviewOnWhiteboard) drawCurrent();
           });
-          importRotateRow.appendChild(b);
+          document.addEventListener("mouseup", function () {
+            cropDrag.active = false;
+            if (livePreviewOnWhiteboard) drawCurrent();
+          });
+        }
+
+        function setupImportAspectRow() {
+          importAspectRow.innerHTML = "";
+          [
+            { id: "landscape", label: "384×256" },
+            { id: "portrait", label: "256×384" },
+          ].forEach(function (opt) {
+            const b = document.createElement("button");
+            b.textContent = opt.label;
+            b.type = "button";
+            b.dataset.aspect = opt.id;
+            b.classList.add("btn-secondary");
+            b.classList.toggle("active", importCropAspect === opt.id);
+            b.addEventListener("click", function () {
+              importCropAspect = opt.id;
+              importAspectRow.querySelectorAll("button").forEach(function (x) {
+                x.classList.toggle("active", x.dataset.aspect === importCropAspect);
+              });
+              if (cropSection.classList.contains("visible")) {
+                initCropBox();
+                if (livePreviewOnWhiteboard) drawCurrent();
+              }
+            });
+            importAspectRow.appendChild(b);
+          });
+        }
+
+        function setupImportRotationRow() {
+          importRotateRow.innerHTML = "";
+          [0, 90, 180, 270].forEach(function (deg) {
+            const b = document.createElement("button");
+            b.textContent = deg + "°";
+            b.type = "button";
+            b.classList.add("btn-secondary");
+            b.classList.toggle("active", importRotationDeg === deg);
+            b.addEventListener("click", function () {
+              importRotationDeg = deg;
+              importRotateRow.querySelectorAll("button").forEach(function (x) {
+                x.classList.toggle("active", parseInt(x.textContent, 10) === deg);
+              });
+              if (livePreviewOnWhiteboard) drawCurrent();
+            });
+            importRotateRow.appendChild(b);
+          });
+        }
+
+        if (importThresholdSlider) {
+          importThresholdSlider.addEventListener("input", function () {
+            importThreshold = parseInt(importThresholdSlider.value, 10);
+            if (importThresholdLabel) importThresholdLabel.textContent = importThreshold;
+            if (livePreviewOnWhiteboard) drawCurrent();
+          });
+        }
+        if (livePreviewOnWhiteboardCheck) {
+          livePreviewOnWhiteboardCheck.addEventListener("change", function () {
+            livePreviewOnWhiteboard = livePreviewOnWhiteboardCheck.checked;
+            drawCurrent();
+          });
+        }
+
+        imageFileInput.addEventListener("change", function () {
+          const f = imageFileInput.files[0];
+          if (!f) return;
+          const url = URL.createObjectURL(f);
+          cropImage.onload = function () {
+            URL.revokeObjectURL(url);
+            cropSection.classList.add("visible");
+            setupImportAspectRow();
+            setupImportRotationRow();
+            initCropBox();
+            updateImportButtons();
+            if (livePreviewOnWhiteboard) drawCurrent();
+          };
+          cropImage.src = url;
         });
-      }
 
-      if (importThresholdSlider) {
-        importThresholdSlider.addEventListener('input', function () {
-          importThreshold = parseInt(importThresholdSlider.value, 10);
-          if (importThresholdLabel) importThresholdLabel.textContent = importThreshold;
-          if (livePreviewOnWhiteboard) drawCurrent();
+        setupCropDrag();
+        setupImportAspectRow();
+        setupImportRotationRow();
+
+        fileInput.addEventListener("change", function () {
+          const f = fileInput.files[0];
+          if (!f) return;
+          lastBpexFileName = f.name;
+          const r = new FileReader();
+          r.onload = function () {
+            lastBuffer = r.result;
+            setStatus("Loaded " + lastBuffer.byteLength + " bytes.");
+            doParse();
+            updateImportButtons();
+          };
+          r.readAsArrayBuffer(f);
         });
-      }
-      if (livePreviewOnWhiteboardCheck) {
-        livePreviewOnWhiteboardCheck.addEventListener('change', function () {
-          livePreviewOnWhiteboard = livePreviewOnWhiteboardCheck.checked;
-          drawCurrent();
-        });
-      }
 
-      imageFileInput.addEventListener('change', function () {
-        const f = imageFileInput.files[0];
-        if (!f) return;
-        const url = URL.createObjectURL(f);
-        cropImage.onload = function () {
-          URL.revokeObjectURL(url);
-          cropSection.classList.add('visible');
-          setupImportAspectRow();
-          setupImportRotationRow();
-          initCropBox();
-          updateImportButtons();
-          if (livePreviewOnWhiteboard) drawCurrent();
-        };
-        cropImage.src = url;
-      });
+        btnReplace.addEventListener("click", replaceSelectedWhiteboard);
+        btnSaveBpex.addEventListener("click", saveBpex);
 
-      setupCropDrag();
-      setupImportAspectRow();
-      setupImportRotationRow();
+        btnParse.addEventListener("click", doParse);
+        btnRotate.addEventListener("click", cycleRotation);
+        btnExportOne.addEventListener("click", exportOnePng);
+        btnExportAll.addEventListener("click", exportAllPng);
 
-      fileInput.addEventListener('change', function () {
-        const f = fileInput.files[0];
-        if (!f) return;
-        lastBpexFileName = f.name;
-        const r = new FileReader();
-        r.onload = function () {
-          lastBuffer = r.result;
-          setStatus('Loaded ' + (lastBuffer.byteLength) + ' bytes.');
-          doParse();
-          updateImportButtons();
-        };
-        r.readAsArrayBuffer(f);
-      });
-
-      btnReplace.addEventListener('click', replaceSelectedWhiteboard);
-      btnSaveBpex.addEventListener('click', saveBpex);
-
-      btnParse.addEventListener('click', doParse);
-      btnRotate.addEventListener('click', cycleRotation);
-      btnExportOne.addEventListener('click', exportOnePng);
-      btnExportAll.addEventListener('click', exportAllPng);
-
-      ctx.fillStyle = '#2c2e33';
-      ctx.fillRect(0, 0, W, H);
-      setStatus('Load a .bpex file to extract whiteboard drawings.');
-      updateImportButtons();
-    })();
-  </script>
-</body>
+        ctx.fillStyle = "#2c2e33";
+        ctx.fillRect(0, 0, W, H);
+        setStatus("Load a .bpex file to extract whiteboard drawings.");
+        updateImportButtons();
+      })();
+    </script>
+  </body>
 </html>
