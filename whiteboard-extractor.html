@@ -303,13 +303,23 @@
         for (let y = 0; y < H; y++) {
           for (let x = 0; x < W; x++) {
             const srcX = W - 1 - x;
-            const v = buf[offset + y * W + srcX];
+            const v = 255 - buf[offset + y * W + srcX]; // invert .bpex colors
             const j = (y * W + x) * 4;
             arr[j] = arr[j + 1] = arr[j + 2] = v;
             arr[j + 3] = 255;
           }
         }
         return new ImageData(arr, W, H);
+      }
+
+      function invertImageData(imageData) {
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          d[i] = 255 - d[i];
+          d[i + 1] = 255 - d[i + 1];
+          d[i + 2] = 255 - d[i + 2];
+        }
+        return imageData;
       }
 
       function extractWhiteboards(buffer) {
@@ -578,7 +588,8 @@
           tctx2.translate(-W / 2, -H / 2);
         }
         tctx2.drawImage(tmp, 0, 0);
-        const imageData = tctx2.getImageData(0, 0, W, H);
+        let imageData = tctx2.getImageData(0, 0, W, H);
+        imageData = invertImageData(imageData); // invert imported image colors
         const pixelBytes = imageDataToPixelBuffer(imageData);
         lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
         doParse(slot);
