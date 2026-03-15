@@ -302,12 +302,7 @@
         <input type="file" id="file" accept=".bpex" />
         <div class="row" style="margin-top: 0.75rem">
           <div>
-            <label>&nbsp;</label>
-            <button type="button" id="btnParse">Load &amp; extract</button>
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button type="button" id="btnExportAll" class="btn-secondary" disabled>Export all as PNG</button>
+            <button type="button" id="btnExportAll" class="btn-secondary" disabled>Export all whiteboards as PNG</button>
           </div>
         </div>
         <p id="status" class="info"></p>
@@ -424,7 +419,6 @@
         H = 256;
 
       const fileInput = document.getElementById("file");
-      const btnParse = document.getElementById("btnParse");
       const btnRotate = document.getElementById("btnRotate");
       const btnExportOne = document.getElementById("btnExportOne");
       const btnExportAll = document.getElementById("btnExportAll");
@@ -1132,7 +1126,6 @@
       btnReplace.addEventListener("click", replaceSelectedWhiteboard);
       btnSaveBpex.addEventListener("click", saveBpex);
 
-      btnParse.addEventListener("click", doParse);
       btnRotate.addEventListener("click", cycleRotation);
       btnExportOne.addEventListener("click", exportOnePng);
       btnExportAll.addEventListener("click", exportAllPng);
