@@ -77,14 +77,36 @@
       margin-bottom: 0.35rem;
     }
 
-    input[type="file"] {
-      width: 100%;
-      padding: 0.5rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
+    .file-input-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .file-input-wrap input[type="file"] {
+      position: absolute;
+      width: 0.1px;
+      height: 0.1px;
+      opacity: 0;
+      overflow: hidden;
+      z-index: -1;
+    }
+
+    .file-input-wrap .file-input-btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: var(--accent);
+      color: #0f1419;
+      border: none;
       border-radius: 6px;
-      color: var(--text);
       font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      margin-bottom: 0;
+    }
+
+    .file-input-wrap .file-input-btn:hover {
+      background: var(--accent-hover);
     }
 
     .row {
@@ -343,6 +365,22 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .import-threshold-row {
+      padding: 0.5rem 0.75rem;
+      margin-left: -0.75rem;
+      margin-right: -0.75rem;
+      padding-left: 0.75rem;
+      background: rgba(77, 171, 247, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .import-threshold-row .import-threshold-label {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
     .credit {
       margin: -0.5rem 0 0 0;
       font-size: 0.85rem;
@@ -355,15 +393,16 @@
   <h1>Blueprint Whiteboard Extractor</h1>
   <p class="credit">made by QuerSlider</p>
   <p class="sub">
-    Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. Each 98,304 bytes = one
-    384×256 whiteboard. .bp and .bpmeta do not contain the drawing pixels.
+    Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. <strong></strong>.bp</strong> and <strong>.bpmeta</strong> do not contain the drawing pixels.
   </p>
 
   <div class="main-layout">
     <div class="left-col">
       <div class="card">
-        <label for="file">.bpex file</label>
-        <input type="file" id="file" accept=".bpex" />
+        <div class="file-input-wrap">
+          <label for="file" class="file-input-btn">Select a .bpex file</label>
+          <input type="file" id="file" accept=".bpex" />
+        </div>
         <div class="row" style="margin-top: 0.75rem">
           <div>
             <button type="button" id="btnExportAll" class="btn-secondary" disabled>Export all whiteboards as
@@ -395,7 +434,10 @@
           Load an image, crop to 384×256 or 256×384. Game uses binary (on/off) only; image is thresholded. Rotate as
           needed, then replace the selected whiteboard and save.
         </p>
-        <input type="file" id="imageFile" accept="image/*" />
+        <div class="file-input-wrap">
+          <label for="imageFile" class="file-input-btn">Choose image</label>
+          <input type="file" id="imageFile" accept="image/*" />
+        </div>
         <div id="cropSection" class="crop-section">
           <div class="row" style="margin-top: 0.35rem; align-items: center">
             <span class="crop-hint" style="margin: 0">Crop aspect:</span>
@@ -412,8 +454,8 @@
             <span class="crop-hint" style="margin: 0">Image rotation:</span>
             <div id="importRotateRow" class="index-row" style="margin: 0"></div>
           </div>
-          <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
-            <span class="crop-hint" style="margin: 0">Grayscale cutoff (0–255):</span>
+          <div class="row import-threshold-row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
+            <span class="crop-hint import-threshold-label" style="margin: 0">Grayscale cutoff (0–255):</span>
             <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px" />
             <span class="crop-hint import-value-label" id="importThresholdLabel" style="margin: 0">128</span>
           </div>
