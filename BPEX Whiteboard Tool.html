@@ -459,6 +459,13 @@
             <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px" />
             <span class="crop-hint import-value-label" id="importThresholdLabel" style="margin: 0">128</span>
           </div>
+          <div class="row" style="margin-top: 0.35rem; align-items: center">
+            <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer">
+              <input type="checkbox" id="importDitheringCheck" style="width: auto" />
+              <span class="crop-hint" style="margin: 0">Use dithering (Floyd–Steinberg)</span>
+            </label>
+            <span class="crop-hint" style="margin-left: 0.25rem">Softer edges and gradients.</span>
+          </div>
           <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
             <span class="crop-hint" style="margin: 0">Contrast:</span>
             <input type="range" id="importContrastSlider" min="0" max="200" value="100" style="width: 100px" />
@@ -559,6 +566,7 @@
         importChannelG = 100,
         importChannelB = 100; // 0-200 each, channel mixer
       let importSmoothness = 0; // 0-15 blur radius
+      let importDithering = false;
       let livePreviewOnWhiteboard = false;
       let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
       let resizeDrag = {
@@ -588,6 +596,7 @@
       const importChannelBLabel = document.getElementById("importChannelBLabel");
       const importSmoothnessSlider = document.getElementById("importSmoothnessSlider");
       const importSmoothnessLabel = document.getElementById("importSmoothnessLabel");
+      const importDitheringCheck = document.getElementById("importDitheringCheck");
       const livePreviewOnWhiteboardCheck = document.getElementById("livePreviewOnWhiteboardCheck");
 
       function setStatus(msg, isError) {
@@ -737,6 +746,41 @@
         return arr;
       }
 
+      function imageDataToPixelBufferDither(imageData, threshold, channelWeights) {
+        const t = threshold !== undefined ? threshold : 128;
+        const rW = channelWeights ? channelWeights.r : 0.299;
+        const gW = channelWeights ? channelWeights.g : 0.587;
+        const bW = channelWeights ? channelWeights.b : 0.114;
+        const sum = rW + gW + bW;
+        const data = imageData.data;
+        const gray = new Float64Array(W * H);
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const j = (y * W + x) * 4;
+            gray[y * W + x] = (rW * data[j] + gW * data[j + 1] + bW * data[j + 2]) / (sum || 1);
+          }
+        }
+        const arr = new Uint8Array(W * H);
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const idx = y * W + x;
+            const g = gray[idx];
+            const out = g >= t ? 255 : 0;
+            const err = g - out;
+            gray[idx] = out;
+            if (x + 1 < W) gray[idx + 1] = Math.max(0, Math.min(255, gray[idx + 1] + err * (7 / 16)));
+            if (y + 1 < H) {
+              if (x > 0) gray[(y + 1) * W + (x - 1)] = Math.max(0, Math.min(255, gray[(y + 1) * W + (x - 1)] + err * (3 / 16)));
+              gray[(y + 1) * W + x] = Math.max(0, Math.min(255, gray[(y + 1) * W + x] + err * (5 / 16)));
+              if (x + 1 < W) gray[(y + 1) * W + (x + 1)] = Math.max(0, Math.min(255, gray[(y + 1) * W + (x + 1)] + err * (1 / 16)));
+            }
+            const dstX = W - 1 - x;
+            arr[y * W + dstX] = out;
+          }
+        }
+        return arr;
+      }
+
       function getImportChannelWeights() {
         const rW = 0.299 * (importChannelR / 100);
         const gW = 0.587 * (importChannelG / 100);
@@ -816,11 +860,9 @@
             let imageData = outCanvas.getContext("2d").getImageData(0, 0, W, H);
             imageData = applyImportAdjustments(imageData);
             imageData = invertImageData(imageData);
-            const pixelBytes = imageDataToPixelBuffer(
-              imageData,
-              importThreshold,
-              getImportChannelWeights()
-            );
+            const pixelBytes = importDithering
+              ? imageDataToPixelBufferDither(imageData, importThreshold, getImportChannelWeights())
+              : imageDataToPixelBuffer(imageData, importThreshold, getImportChannelWeights());
             const displayData = pixelBufferToImageData(pixelBytes, 0);
             const tempC = document.createElement("canvas");
             tempC.width = W;
@@ -1073,11 +1115,9 @@
         let imageData = outCanvas.getContext("2d").getImageData(0, 0, W, H);
         imageData = applyImportAdjustments(imageData);
         imageData = invertImageData(imageData); // invert imported image colors
-        const pixelBytes = imageDataToPixelBuffer(
-          imageData,
-          importThreshold,
-          getImportChannelWeights()
-        );
+        const pixelBytes = importDithering
+          ? imageDataToPixelBufferDither(imageData, importThreshold, getImportChannelWeights())
+          : imageDataToPixelBuffer(imageData, importThreshold, getImportChannelWeights());
         lastBuffer = mergePixelsIntoBuffer(lastBuffer, pixelBytes, slot);
         doParse(slot);
         setStatus("Replaced whiteboard " + (slot + 1) + ". Save .bpex to download.");
@@ -1277,6 +1317,12 @@
         importSmoothnessSlider.addEventListener("input", function () {
           importSmoothness = parseInt(importSmoothnessSlider.value, 10);
           if (importSmoothnessLabel) importSmoothnessLabel.textContent = importSmoothness;
+          if (livePreviewOnWhiteboard) drawCurrent();
+        });
+      }
+      if (importDitheringCheck) {
+        importDitheringCheck.addEventListener("change", function () {
+          importDithering = importDitheringCheck.checked;
           if (livePreviewOnWhiteboard) drawCurrent();
         });
       }
