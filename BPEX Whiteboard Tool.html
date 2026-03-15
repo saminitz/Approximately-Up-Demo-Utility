@@ -658,7 +658,8 @@
           tmp.height = srcH;
           const tctx = tmp.getContext("2d");
           tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
-          const totalRotation = (importRotationDeg + 270) % 360;
+          const totalRotation =
+            importCropAspect == "landscape" ? (importRotationDeg + 270) % 360 : (importRotationDeg + 180) % 360;
           const rot90or270 = totalRotation === 90 || totalRotation === 270;
           const tmp2 = document.createElement("canvas");
           tmp2.width = rot90or270 ? srcH : srcW;
