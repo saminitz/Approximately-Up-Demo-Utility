@@ -448,8 +448,8 @@
         const arr = new Uint8ClampedArray(W * H * 4);
         for (let y = 0; y < H; y++) {
           for (let x = 0; x < W; x++) {
-            const srcX = W - 1 - x;
-            const v = 255 - buf[offset + y * W + srcX]; // invert .bpex colors
+            const srcY = H - 1 - y; // bpex stores rows bottom-to-top
+            const v = 255 - buf[offset + srcY * W + x]; // invert .bpex colors
             const j = (y * W + x) * 4;
             arr[j] = arr[j + 1] = arr[j + 2] = v;
             arr[j + 3] = 255;
@@ -845,8 +845,7 @@
         tmp.height = srcH;
         const tctx = tmp.getContext("2d");
         tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
-        const totalRotation =
-          importCropAspect == "landscape" ? (importRotationDeg + 270) % 360 : (importRotationDeg + 180) % 360;
+        const totalRotation = importCropAspect == "landscape" ? (importRotationDeg + 90) % 360 : importRotationDeg;
         const rot90or270 = totalRotation === 90 || totalRotation === 270;
         const tmp2 = document.createElement("canvas");
         tmp2.width = rot90or270 ? srcH : srcW;
