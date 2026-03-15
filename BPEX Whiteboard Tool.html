@@ -34,7 +34,7 @@
       display: flex;
       gap: 1.5rem;
       flex-wrap: wrap;
-      align-items: flex-start;
+      align-items: stretch;
     }
 
     .main-layout .left-col {
@@ -43,6 +43,9 @@
 
     .main-layout .right-col {
       flex: 0 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
     }
 
     h1 {
@@ -251,6 +254,24 @@
       margin-top: 0.35rem;
     }
 
+    .info-section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 0.75rem 0;
+    }
+
+    .info-section-item {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0 0 0.5rem 0;
+      line-height: 1.5;
+    }
+
+    .info-section-item:last-child {
+      margin-bottom: 0;
+    }
+
     .import-value-label {
       display: inline-block;
       min-width: 3.25rem;
@@ -374,6 +395,23 @@
             <button type="button" id="btnSaveBpex" class="btn-secondary" disabled>Save .bpex file</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2 class="info-section-title">Info</h2>
+        <p class="info-section-item">
+          <strong>Local processing:</strong> All files are edited locally in your browser. Nothing is uploaded to any
+          server; your images and .bpex files never leave your device.
+        </p>
+        <p class="info-section-item">
+          <strong>Responsibility disclaimer:</strong> This tool is provided as-is. All processing happens on your
+          device;
+          you may share or use the edited .bpex files as you wish. You are responsible for backing up your files,
+          ensuring you have the right to use any images you import, and for any use of the generated content.
+          The author and distributor of this tool are not liable for data loss, misuse, or any damages arising from its
+          use.
+        </p>
       </div>
     </div>
   </div>
