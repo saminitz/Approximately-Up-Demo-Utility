@@ -441,7 +441,7 @@
         }
 
         function getRotationForIndex(i) {
-          return whiteboardRotations[i] !== undefined ? whiteboardRotations[i] : 180;
+          return whiteboardRotations[i] !== undefined ? whiteboardRotations[i] : 0;
         }
 
         function getDisplaySize(deg) {
@@ -495,12 +495,12 @@
         }
 
         function displayAngle() {
-          return (getRotationForIndex(currentIndex) + 180) % 360;
+          return getRotationForIndex(currentIndex);
         }
 
         function cycleRotation() {
           while (whiteboardRotations.length <= currentIndex) {
-            whiteboardRotations.push(180);
+            whiteboardRotations.push(0);
           }
           whiteboardRotations[currentIndex] = (getRotationForIndex(currentIndex) + 90) % 360;
           btnRotate.textContent = "Rotate (" + displayAngle() + "°)";
@@ -532,7 +532,7 @@
             currentIndex = 0;
           }
           while (whiteboardRotations.length < whiteboardCanvases.length) {
-            whiteboardRotations.push(180);
+            whiteboardRotations.push(0);
           }
           whiteboardRotations = whiteboardRotations.slice(0, whiteboardCanvases.length);
           showIndex(whiteboardCanvases.length);
@@ -658,7 +658,7 @@
           tmp.height = srcH;
           const tctx = tmp.getContext("2d");
           tctx.drawImage(cropImage, r.x, r.y, r.w, r.h, 0, 0, srcW, srcH);
-          const totalRotation = (importRotationDeg + 180) % 360;
+          const totalRotation = (importRotationDeg + 270) % 360;
           const rot90or270 = totalRotation === 90 || totalRotation === 270;
           const tmp2 = document.createElement("canvas");
           tmp2.width = rot90or270 ? srcH : srcW;
