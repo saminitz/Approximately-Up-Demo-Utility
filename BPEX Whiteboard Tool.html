@@ -214,6 +214,12 @@
         color: var(--muted);
         margin-top: 0.35rem;
       }
+      .import-value-label {
+        display: inline-block;
+        min-width: 3.25rem;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
     </style>
   </head>
   <body>
@@ -281,36 +287,36 @@
             <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
               <span class="crop-hint" style="margin: 0">Grayscale cutoff (0–255):</span>
               <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px" />
-              <span class="crop-hint" id="importThresholdLabel" style="margin: 0; min-width: 2.5rem">128</span>
+              <span class="crop-hint import-value-label" id="importThresholdLabel" style="margin: 0">128</span>
             </div>
             <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
               <span class="crop-hint" style="margin: 0">Contrast:</span>
               <input type="range" id="importContrastSlider" min="0" max="200" value="100" style="width: 100px" />
-              <span class="crop-hint" id="importContrastLabel" style="margin: 0; min-width: 2.5rem">100%</span>
+              <span class="crop-hint import-value-label" id="importContrastLabel" style="margin: 0">100%</span>
             </div>
             <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
               <span class="crop-hint" style="margin: 0">Highlights:</span>
               <input type="range" id="importHighlightsSlider" min="-100" max="100" value="0" style="width: 100px" />
-              <span class="crop-hint" id="importHighlightsLabel" style="margin: 0; min-width: 2.5rem">0</span>
+              <span class="crop-hint import-value-label" id="importHighlightsLabel" style="margin: 0">0</span>
               <span class="crop-hint" style="margin: 0">Shadows:</span>
               <input type="range" id="importShadowsSlider" min="-100" max="100" value="0" style="width: 100px" />
-              <span class="crop-hint" id="importShadowsLabel" style="margin: 0; min-width: 2.5rem">0</span>
+              <span class="crop-hint import-value-label" id="importShadowsLabel" style="margin: 0">0</span>
             </div>
             <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
               <span class="crop-hint" style="margin: 0">Channel mixer R:</span>
               <input type="range" id="importChannelRSlider" min="0" max="200" value="100" style="width: 80px" />
-              <span class="crop-hint" id="importChannelRLabel" style="margin: 0; min-width: 2rem">100%</span>
+              <span class="crop-hint import-value-label" id="importChannelRLabel" style="margin: 0">100%</span>
               <span class="crop-hint" style="margin: 0">G:</span>
               <input type="range" id="importChannelGSlider" min="0" max="200" value="100" style="width: 80px" />
-              <span class="crop-hint" id="importChannelGLabel" style="margin: 0; min-width: 2rem">100%</span>
+              <span class="crop-hint import-value-label" id="importChannelGLabel" style="margin: 0">100%</span>
               <span class="crop-hint" style="margin: 0">B:</span>
               <input type="range" id="importChannelBSlider" min="0" max="200" value="100" style="width: 80px" />
-              <span class="crop-hint" id="importChannelBLabel" style="margin: 0; min-width: 2rem">100%</span>
+              <span class="crop-hint import-value-label" id="importChannelBLabel" style="margin: 0">100%</span>
             </div>
             <div class="row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
               <span class="crop-hint" style="margin: 0">Smoothness / noise reduction:</span>
               <input type="range" id="importSmoothnessSlider" min="0" max="15" value="0" style="width: 100px" />
-              <span class="crop-hint" id="importSmoothnessLabel" style="margin: 0; min-width: 2rem">0</span>
+              <span class="crop-hint import-value-label" id="importSmoothnessLabel" style="margin: 0">0</span>
             </div>
             <div class="row" style="margin-top: 0.35rem; align-items: center">
               <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer">
