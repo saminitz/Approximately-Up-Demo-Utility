@@ -237,6 +237,68 @@
       pointer-events: auto;
     }
 
+    .crop-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      pointer-events: auto;
+      z-index: 1;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .crop-handle[data-handle="n"] {
+      top: -5px;
+      left: 50%;
+      margin-left: -5px;
+      cursor: n-resize;
+    }
+
+    .crop-handle[data-handle="s"] {
+      bottom: -5px;
+      left: 50%;
+      margin-left: -5px;
+      cursor: s-resize;
+    }
+
+    .crop-handle[data-handle="e"] {
+      right: -5px;
+      top: 50%;
+      margin-top: -5px;
+      cursor: e-resize;
+    }
+
+    .crop-handle[data-handle="w"] {
+      left: -5px;
+      top: 50%;
+      margin-top: -5px;
+      cursor: w-resize;
+    }
+
+    .crop-handle[data-handle="ne"] {
+      top: -5px;
+      right: -5px;
+      cursor: ne-resize;
+    }
+
+    .crop-handle[data-handle="nw"] {
+      top: -5px;
+      left: -5px;
+      cursor: nw-resize;
+    }
+
+    .crop-handle[data-handle="se"] {
+      bottom: -5px;
+      right: -5px;
+      cursor: se-resize;
+    }
+
+    .crop-handle[data-handle="sw"] {
+      bottom: -5px;
+      left: -5px;
+      cursor: sw-resize;
+    }
+
     .crop-box::after {
       content: "";
       position: absolute;
@@ -341,7 +403,7 @@
               <div id="cropBox" class="crop-box"></div>
             </div>
           </div>
-          <p class="crop-hint">Drag the crop box to align. Rotate this image before replacing:</p>
+          <p class="crop-hint">Drag to move; drag corners or edges to resize. Rotate this image before replacing:</p>
           <div class="row" style="margin-top: 0.35rem; align-items: center">
             <span class="crop-hint" style="margin: 0">Image rotation:</span>
             <div id="importRotateRow" class="index-row" style="margin: 0"></div>
@@ -453,6 +515,16 @@
       let importSmoothness = 0; // 0-15 blur radius
       let livePreviewOnWhiteboard = false;
       let cropDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+      let resizeDrag = {
+        active: false,
+        handle: "",
+        startX: 0,
+        startY: 0,
+        startLeft: 0,
+        startTop: 0,
+        startWidth: 0,
+        startHeight: 0,
+      };
 
       const importThresholdSlider = document.getElementById("importThresholdSlider");
       const importThresholdLabel = document.getElementById("importThresholdLabel");
@@ -854,6 +926,22 @@
         cropBox.style.height = Math.max(20, Math.round(ch * scaleY)) + "px";
         cropBox.style.left = rect.left + Math.round(cx * scaleX) + "px";
         cropBox.style.top = rect.top + Math.round(cy * scaleY) + "px";
+        createCropHandles();
+      }
+
+      function createCropHandles() {
+        const handles = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+        const existing = cropBox.querySelectorAll(".crop-handle");
+        if (existing.length === 8) return;
+        existing.forEach(function (el) {
+          el.remove();
+        });
+        handles.forEach(function (id) {
+          const div = document.createElement("div");
+          div.className = "crop-handle";
+          div.setAttribute("data-handle", id);
+          cropBox.appendChild(div);
+        });
       }
 
       function getCropInImageCoords() {
@@ -950,9 +1038,68 @@
         setStatus("Saved .bpex file.");
       }
 
+      function getCropAspectRatio() {
+        const isLandscape = importCropAspect === "landscape";
+        return { w: isLandscape ? 384 : 256, h: isLandscape ? 256 : 384 };
+      }
+
+      function applyResize(dx, dy) {
+        const rect = getImgDisplayRect();
+        const ar = getCropAspectRatio();
+        const aspect = ar.w / ar.h;
+        const minLong = 24;
+        const minShort = Math.round(24 * Math.min(ar.w, ar.h) / Math.max(ar.w, ar.h));
+        const minW = ar.w >= ar.h ? minLong : minShort;
+        const minH = ar.h >= ar.w ? minLong : minShort;
+        let left = resizeDrag.startLeft;
+        let top = resizeDrag.startTop;
+        let width = resizeDrag.startWidth;
+        let height = resizeDrag.startHeight;
+        const handle = resizeDrag.handle;
+        if (handle.indexOf("e") !== -1) width = Math.max(minW, resizeDrag.startWidth + dx);
+        if (handle.indexOf("w") !== -1) width = Math.max(minW, resizeDrag.startWidth - dx);
+        if (handle.indexOf("s") !== -1) height = Math.max(minH, resizeDrag.startHeight + dy);
+        if (handle.indexOf("n") !== -1) height = Math.max(minH, resizeDrag.startHeight - dy);
+        if (handle === "e" || handle === "w") height = Math.round(width / aspect);
+        else if (handle === "n" || handle === "s") width = Math.round(height * aspect);
+        else {
+          if (handle === "se" || handle === "ne") width = Math.max(minW, resizeDrag.startWidth + dx);
+          else width = Math.max(minW, resizeDrag.startWidth - dx);
+          height = Math.round(width / aspect);
+        }
+        if (handle.indexOf("w") !== -1) left = resizeDrag.startLeft + resizeDrag.startWidth - width;
+        if (handle.indexOf("n") !== -1) top = resizeDrag.startTop + resizeDrag.startHeight - height;
+        left = Math.max(rect.left, Math.min(rect.left + rect.w - width, left));
+        top = Math.max(rect.top, Math.min(rect.top + rect.h - height, top));
+        if (left + width > rect.left + rect.w) {
+          width = rect.left + rect.w - left;
+          height = Math.round(width / aspect);
+        }
+        if (top + height > rect.top + rect.h) {
+          height = rect.top + rect.h - top;
+          width = Math.round(height * aspect);
+        }
+        if (width < minW || height < minH) return;
+        cropBox.style.left = left + "px";
+        cropBox.style.top = top + "px";
+        cropBox.style.width = width + "px";
+        cropBox.style.height = height + "px";
+      }
+
       function setupCropDrag() {
         cropBox.addEventListener("mousedown", function (e) {
           if (e.button !== 0) return;
+          if (e.target.classList.contains("crop-handle")) {
+            resizeDrag.active = true;
+            resizeDrag.handle = e.target.getAttribute("data-handle");
+            resizeDrag.startX = e.clientX;
+            resizeDrag.startY = e.clientY;
+            resizeDrag.startLeft = parseInt(cropBox.style.left || "0", 10);
+            resizeDrag.startTop = parseInt(cropBox.style.top || "0", 10);
+            resizeDrag.startWidth = parseInt(cropBox.style.width || "0", 10);
+            resizeDrag.startHeight = parseInt(cropBox.style.height || "0", 10);
+            return;
+          }
           cropDrag.active = true;
           cropDrag.startX = e.clientX;
           cropDrag.startY = e.clientY;
@@ -960,6 +1107,13 @@
           cropDrag.startTop = parseInt(cropBox.style.top || "0", 10);
         });
         document.addEventListener("mousemove", function (e) {
+          if (resizeDrag.active) {
+            const dx = e.clientX - resizeDrag.startX;
+            const dy = e.clientY - resizeDrag.startY;
+            applyResize(dx, dy);
+            if (livePreviewOnWhiteboard) drawCurrent();
+            return;
+          }
           if (!cropDrag.active) return;
           const dx = e.clientX - cropDrag.startX;
           const dy = e.clientY - cropDrag.startY;
@@ -975,8 +1129,9 @@
           if (livePreviewOnWhiteboard) drawCurrent();
         });
         document.addEventListener("mouseup", function () {
+          if (resizeDrag.active && livePreviewOnWhiteboard) drawCurrent();
           cropDrag.active = false;
-          if (livePreviewOnWhiteboard) drawCurrent();
+          resizeDrag.active = false;
         });
       }
 
