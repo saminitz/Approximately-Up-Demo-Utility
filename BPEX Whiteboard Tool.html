@@ -175,10 +175,12 @@
       margin-top: 0.5rem;
     }
 
-    canvas {
+    /* Canvas is drawn at 384×256 (or 256×384 when rotated); display scaled to match in-game bilinear look */
+    #canvas {
+      width: 408px;
+      height: 272px;
       display: block;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
+      image-rendering: auto;
     }
 
     .info {
@@ -416,7 +418,7 @@
         <label>Whiteboards</label>
         <div id="whiteboardIndex" class="index-row"></div>
         <div id="canvasWrap">
-          <canvas id="c" width="384" height="256"></canvas>
+          <canvas id="canvas" width="384" height="256"></canvas>
         </div>
         <div class="row" style="margin-top: 0.5rem">
           <button type="button" id="btnRotate" class="btn-secondary" disabled>Rotate view (0°)</button>
@@ -539,7 +541,7 @@
       const btnExportAll = document.getElementById("btnExportAll");
       const status = document.getElementById("status");
       const indexRow = document.getElementById("whiteboardIndex");
-      const canvas = document.getElementById("c");
+      const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
       const imageFileInput = document.getElementById("imageFile");
       const cropSection = document.getElementById("cropSection");
@@ -840,6 +842,9 @@
         const size = getDisplaySize(rot);
         canvas.width = size.w;
         canvas.height = size.h;
+        // Keep aspect ratio when rotated: landscape 408×272, portrait 272×408
+        canvas.style.width = (size.w === W ? 408 : 272) + "px";
+        canvas.style.height = (size.h === H ? 272 : 408) + "px";
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, size.w, size.h);
         ctx.save();
@@ -909,6 +914,8 @@
           indexRow.innerHTML = "";
           canvas.width = W;
           canvas.height = H;
+          canvas.style.width = "408px";
+          canvas.style.height = "272px";
           ctx.fillStyle = "#2c2e33";
           ctx.fillRect(0, 0, W, H);
           return;
