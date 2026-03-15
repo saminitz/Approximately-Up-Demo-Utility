@@ -257,11 +257,18 @@
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
+
+    .credit {
+      margin: -0.5rem 0 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
   </style>
 </head>
 
 <body>
   <h1>Blueprint Whiteboard Extractor</h1>
+  <p class="credit">made by QuerSlider</p>
   <p class="sub">
     Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. Each 98,304 bytes = one
     384×256 whiteboard. .bp and .bpmeta do not contain the drawing pixels.
