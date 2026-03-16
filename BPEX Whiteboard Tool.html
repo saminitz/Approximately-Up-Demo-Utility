@@ -395,7 +395,8 @@
   <h1>Blueprint Whiteboard Extractor</h1>
   <p class="credit">made by QuerSlider</p>
   <p class="sub">
-    Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings. <strong></strong>.bp</strong> and <strong>.bpmeta</strong> do not contain the drawing pixels.
+    Load a <strong>.bpex</strong> file (extra blueprint data) to extract whiteboard drawings.
+    <strong></strong>.bp</strong> and <strong>.bpmeta</strong> do not contain the drawing pixels.
   </p>
 
   <div class="main-layout">
@@ -469,7 +470,13 @@
             </label>
             <span class="crop-hint" style="margin-left: 0.25rem">Softer edges and gradients.</span>
           </div>
-          <div class="row import-threshold-row" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
+          <span class="crop-hint"
+            style="display: block; margin-top: 0; margin-left: 1.8rem; color: var(--muted); font-style: italic">
+            Note: dithering is not perfectly accurate at the moment. In-game the pixels are more squished together, so
+            details won’t appear as fine.
+          </span>
+          <div class="row import-threshold-row"
+            style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap; gap: 0.5rem">
             <span class="crop-hint import-threshold-label" style="margin: 0">Grayscale cutoff (0–255):</span>
             <input type="range" id="importThresholdSlider" min="0" max="255" value="128" style="width: 120px" />
             <span class="crop-hint import-value-label" id="importThresholdLabel" style="margin: 0">128</span>
