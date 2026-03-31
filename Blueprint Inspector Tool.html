@@ -94,6 +94,9 @@
       font-size: 0.78rem;
       line-height: 1.35;
     }
+    #compBody tr {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -107,6 +110,10 @@
           <div class="file-input-wrap">
             <label for="bpFile" class="file-input-btn">Select .bp file</label>
             <input type="file" id="bpFile" accept=".bp" />
+          </div>
+          <div class="file-input-wrap">
+            <label for="bpexFile" class="file-input-btn">Select .bpex file (optional)</label>
+            <input type="file" id="bpexFile" accept=".bpex" />
           </div>
           <div class="file-input-wrap">
             <label for="bpmetaFile" class="file-input-btn">Select .bpmeta file</label>
@@ -130,7 +137,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Struct Hash (u64)</th><th>Size</th><th>Fields</th><th>FieldsStart</th></tr>
+              <tr><th>#</th><th>Struct Hash (u64)</th><th>Struct Guess</th><th>Size</th><th>Fields</th><th>FieldsStart</th></tr>
             </thead>
             <tbody id="structBody"></tbody>
           </table>
@@ -145,7 +152,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Prefab Hash (u64)</th><th>HeaderStructIndex</th><th>PayloadOffset</th><th>PayloadSize</th></tr>
+              <tr><th>#</th><th>Prefab Hash (u64)</th><th>Prefab Guess</th><th>HeaderStructIndex</th><th>Struct Guess</th><th>PayloadOffset</th><th>PayloadSize</th></tr>
             </thead>
             <tbody id="compBody"></tbody>
           </table>
@@ -165,8 +172,18 @@
       </div>
 
       <div class="card">
+        <h3 style="margin-top:0">Semantic Analysis (Source-based)</h3>
+        <div id="semanticView" class="small">No component selected.</div>
+      </div>
+
+      <div class="card">
         <h3 style="margin-top:0">Diagnostics</h3>
         <ul id="diagList" class="diag-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Relations / Cross References</h3>
+        <div id="relationView" class="small">No .bp loaded.</div>
       </div>
 
       <div class="card">
@@ -180,6 +197,7 @@
   <script>
     (function () {
       const bpInput = document.getElementById("bpFile");
+      const bpexInput = document.getElementById("bpexFile");
       const bpmetaInput = document.getElementById("bpmetaFile");
       const statusEl = document.getElementById("status");
       const formatMapEl = document.getElementById("formatMap");
@@ -189,14 +207,70 @@
       const compHint = document.getElementById("compHint");
       const metaView = document.getElementById("metaView");
       const decodeView = document.getElementById("decodeView");
+      const semanticView = document.getElementById("semanticView");
       const diagList = document.getElementById("diagList");
+      const relationView = document.getElementById("relationView");
       const hexView = document.getElementById("hexView");
       const btnReset = document.getElementById("btnReset");
 
+      // BlueprintUtility.GetBlueprintStructs() order from decompiled Assembly-CSharp.
+      const STRUCT_ORDER = [
+        "EPC_SpaceshipComponent.Blueprint.BlueprintData",
+        "EPC_SCFrame.Blueprint.BlueprintData",
+        "EPC_SCCable.Blueprint.BlueprintData",
+        "EPC_SCJoystick.Blueprint.BlueprintData",
+        "EPC_SCActionableLight.Blueprint.BlueprintData",
+        "EPC_SCConstant.Blueprint.BlueprintData",
+        "EPC_SCButton.Blueprint.BlueprintData",
+        "EPC_SCMonitor.Blueprint.BlueprintData",
+        "EPC_SCTank.Blueprint.BlueprintData",
+        "EPC_SCPipeManualValve.Blueprint.BlueprintData",
+        "EPC_SCWirelessTransmitter.Blueprint.BlueprintData",
+        "EPC_SCRadar.Blueprint.BlueprintData",
+        "EPC_SCDataMeter.Blueprint.BlueprintData",
+        "EPC_SCSeat.Blueprint.BlueprintData",
+        "EPC_SCBeeper.Blueprint.BlueprintData",
+        "EPC_SCSimpleThreshold.Blueprint.BlueprintData",
+        "EPC_SCFuseBox.Blueprint.BlueprintData",
+        "EPC_SCSpaceScannerReader.Blueprint.BlueprintData",
+        "EPC_SCGimbalThruster.Blueprint.BlueprintData",
+        "EPC_SCGimbalController.Blueprint.BlueprintData",
+        "EPC_SCRemapper.Blueprint.BlueprintData",
+        "EPC_SCFader.Blueprint.BlueprintData",
+        "EPC_SCGyroLine.Blueprint.BlueprintData",
+        "EPC_SCLever.Blueprint.BlueprintData",
+        "EPC_SCETASystem.Blueprint.BlueprintData",
+        "EPC_SCAnalogMeter.Blueprint.BlueprintData",
+        "EPC_SCThruster.Blueprint.BlueprintData",
+        "EPC_SCCamera.Blueprint.BlueprintData",
+        "EPC_SCDataHub.Blueprint.BlueprintData",
+        "EPC_SCSwitch.Blueprint.BlueprintData",
+        "EPC_SCVelocityMeter.Blueprint.BlueprintData",
+        "EPC_SCDifferentiator.Blueprint.BlueprintData",
+        "EPC_SCMemory.Blueprint.BlueprintData",
+        "EPC_SCAccumulator.Blueprint.BlueprintData",
+        "EPC_SCWhiteboard.Blueprint.BlueprintData"
+      ];
+
+      const ROTATION_QUATS = [
+        [0.5, 0.5, 0.5, 0.5], [-0.5, 0.5, -0.5, 0.5], [-0.7071068, 0, -0.7071068, 0], [0, 0.7071068, 0, 0.7071068],
+        [-0.5, -0.5, 0.5, 0.5], [0.5, -0.5, -0.5, 0.5], [0, -0.7071068, 0, 0.7071068], [0.7071068, 0, -0.7071068, 0],
+        [-0.7071067, 0, 0, 0.7071067], [0, 0.7071067, 0.7071067, 0], [-0.5, -0.5, -0.5, 0.5], [-0.5, 0.5, 0.5, 0.5],
+        [0.7071067, 0, 0, 0.7071067], [0, 0.7071067, -0.7071067, 0], [-0.5, 0.5, -0.5, -0.5], [0.5, 0.5, -0.5, 0.5],
+        [0, 0, 0, 1], [0, 0, -1, 0], [0, 0, 0.7071068, 0.7071068], [0, 0, -0.7071068, 0.7071068],
+        [1, 0, 0, 0], [0, -1, 0, 0], [-0.7071068, -0.7071068, 0, 0], [0.7071068, -0.7071068, 0, 0]
+      ];
+
+      const COLOR_NAMES = {
+        0: "None"
+      };
+
       const state = {
         bp: null,
+        bpex: null,
         bpMeta: null,
         parsedBp: null,
+        prefabStats: null,
         diagnostics: [],
         selectedComponent: -1
       };
@@ -241,6 +315,7 @@
       }
 
       function fmtBytes(n) { return n.toLocaleString("en-US") + " bytes"; }
+      function structNameByIndex(idx) { return (idx >= 0 && idx < STRUCT_ORDER.length) ? STRUCT_ORDER[idx] : "UnknownStruct#" + idx; }
 
       function ensure(len, at, need, label) {
         if (at + need > len) {
@@ -343,6 +418,41 @@
         return parsed;
       }
 
+      function compareVersions(a, b) {
+        const pa = String(a || "").split(".").map(function (x) { return parseInt(x, 10) || 0; });
+        const pb = String(b || "").split(".").map(function (x) { return parseInt(x, 10) || 0; });
+        const n = Math.max(pa.length, pb.length);
+        for (let i = 0; i < n; i++) {
+          const da = pa[i] || 0;
+          const db = pb[i] || 0;
+          if (da < db) return -1;
+          if (da > db) return 1;
+        }
+        return 0;
+      }
+
+      function computePrefabStats(parsed) {
+        const map = new Map();
+        parsed.components.forEach(function (c) {
+          const key = c.prefabHash.toString();
+          if (!map.has(key)) map.set(key, { prefabHash: c.prefabHash, count: 0, byStruct: new Map() });
+          const s = map.get(key);
+          s.count++;
+          const structName = structNameByIndex(c.headerStructIndex);
+          s.byStruct.set(structName, (s.byStruct.get(structName) || 0) + 1);
+        });
+        const out = new Map();
+        map.forEach(function (v, k) {
+          let bestName = "unknown";
+          let bestCount = -1;
+          v.byStruct.forEach(function (cnt, name) {
+            if (cnt > bestCount) { bestCount = cnt; bestName = name; }
+          });
+          out.set(k, { prefabHash: v.prefabHash, count: v.count, guess: bestName });
+        });
+        return out;
+      }
+
       function parseBpMeta(text) {
         const data = JSON.parse(text);
         const out = {
@@ -403,6 +513,11 @@
         add("_name", state.bpMeta.name || "(missing)");
         add("_folder", state.bpMeta.folder || "(missing)");
         add("_version", state.bpMeta.version || "(missing)");
+        if (state.bpMeta.version) {
+          const cmp = compareVersions(state.bpMeta.version, "0.1.030");
+          add("Compatibility baseline", "0.1.030");
+          add("Version status", cmp < 0 ? "older-than-baseline (conversion likely needed)" : "baseline-or-newer");
+        }
       }
 
       function renderStructs() {
@@ -418,6 +533,7 @@
           tr.innerHTML =
             "<td>" + s.index + "</td>" +
             "<td class='mono'>" + u64Hex(s.structName) + "</td>" +
+            "<td class='mono'>" + structNameByIndex(s.index) + "</td>" +
             "<td>" + s.structSizeof + "</td>" +
             "<td>" + s.fieldsCount + "</td>" +
             "<td class='mono'>" + s.fieldsStart + "</td>";
@@ -434,12 +550,15 @@
         }
         compHint.textContent = p.components.length + " component(s)";
         p.components.forEach(function (c) {
+          const prefabInfo = state.prefabStats ? state.prefabStats.get(c.prefabHash.toString()) : null;
           const tr = document.createElement("tr");
           tr.className = c.index === state.selectedComponent ? "active" : "";
           tr.innerHTML =
             "<td>" + c.index + "</td>" +
             "<td class='mono'>" + u64Hex(c.prefabHash) + "</td>" +
+            "<td class='mono'>" + (prefabInfo ? prefabInfo.guess : "unknown") + "</td>" +
             "<td>" + c.headerStructIndex + "</td>" +
+            "<td class='mono'>" + structNameByIndex(c.headerStructIndex) + "</td>" +
             "<td class='mono'>" + c.payloadOffset + "</td>" +
             "<td>" + c.payloadSize + "</td>";
           tr.addEventListener("click", function () {
@@ -476,24 +595,179 @@
         return { kind: "ok", text: out.join(" ; ") };
       }
 
+      function formatGuidDotNet(bytes16) {
+        if (!bytes16 || bytes16.length !== 16) return "(invalid)";
+        const hex = Array.from(bytes16, function (b) { return b.toString(16).padStart(2, "0"); });
+        return [
+          hex[3] + hex[2] + hex[1] + hex[0],
+          hex[5] + hex[4],
+          hex[7] + hex[6],
+          hex[8] + hex[9],
+          hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15]
+        ].join("-");
+      }
+
+      function decodeGarageTransformPacked(gtPackedU32) {
+        return {
+          packedHex: "0x" + (gtPackedU32 >>> 0).toString(16).padStart(8, "0"),
+          gridX: gtPackedU32 & 0x1ff,
+          gridY: (gtPackedU32 >>> 9) & 0x1ff,
+          gridZ: (gtPackedU32 >>> 18) & 0x1ff,
+          rotIndex: (gtPackedU32 >>> 27) & 0x1f
+        };
+      }
+
+      function isLikelyPackedGT(v) {
+        return ((v >>> 27) & 0x1f) < 24;
+      }
+
+      function fieldAlias(structIndex, field) {
+        // Source-informed common base fields in many BlueprintData structs.
+        if (field.fieldOffset === 0 && field.fieldSizeof === 16) return "_guid";
+        if (field.fieldOffset === 16 && field.fieldSizeof === 4) return "_gt";
+        if (field.fieldOffset === 20 && field.fieldSizeof === 4 && structNameByIndex(structIndex).indexOf("Whiteboard") !== -1) return "_extraData";
+        if ((field.fieldOffset === 20 || field.fieldOffset === 21 || field.fieldOffset === 24 || field.fieldOffset === 52) && field.fieldSizeof <= 4) {
+          return "maybeColorOrData";
+        }
+        return "unknown";
+      }
+
+      function renderSemanticView(view, c, layout) {
+        semanticView.innerHTML = "";
+        const rows = [];
+        const structGuess = structNameByIndex(c.headerStructIndex);
+        rows.push(["Struct guess", structGuess]);
+
+        if (c.payloadSize >= 16) {
+          const guidBytes = new Uint8Array(state.bp, c.payloadOffset, 16);
+          rows.push(["GUID candidate", formatGuidDotNet(guidBytes)]);
+        }
+
+        let bestGT = null;
+        let gtCount = 0;
+        layout.fields.forEach(function (f) {
+          if (f.fieldSizeof !== 4) return;
+          const at = c.payloadOffset + f.fieldOffset;
+          if (at < c.payloadOffset || at + 4 > c.payloadOffset + c.payloadSize) return;
+          const u32 = view.getUint32(at, true);
+          if (isLikelyPackedGT(u32)) {
+            gtCount++;
+            if (!bestGT) {
+              bestGT = { fieldHash: u64Hex(f.fieldName), fieldOffset: f.fieldOffset, decoded: decodeGarageTransformPacked(u32) };
+            }
+          }
+        });
+
+        if (bestGT) {
+          rows.push(["GT field candidate", bestGT.fieldHash + " @ +" + bestGT.fieldOffset]);
+          rows.push(["Packed _gt", bestGT.decoded.packedHex]);
+          rows.push(["Block grid (encoded)", "(" + bestGT.decoded.gridX + ", " + bestGT.decoded.gridY + ", " + bestGT.decoded.gridZ + ")"]);
+          rows.push(["Rotation index", String(bestGT.decoded.rotIndex) + " (0..23 expected)"]);
+          const q = ROTATION_QUATS[bestGT.decoded.rotIndex];
+          if (q) rows.push(["Rotation quaternion", "(" + q.map(function (x) { return x.toFixed(4); }).join(", ") + ")"]);
+          rows.push(["Base position (without bounds)", "(" +
+            (bestGT.decoded.gridX * 0.125).toFixed(3) + ", " +
+            (bestGT.decoded.gridY * 0.125).toFixed(3) + ", " +
+            (bestGT.decoded.gridZ * 0.125).toFixed(3) + ")"]);
+          rows.push(["Position note", "Final in-game position adds rotated half-bounds of the specific prefab."]);
+          if (gtCount > 1) rows.push(["Other GT-like u32 fields", String(gtCount - 1)]);
+        } else {
+          rows.push(["GT field candidate", "None found by heuristic (rot bits < 24)."]);
+        }
+
+        if (c.payloadSize >= 24) {
+          const color = view.getUint8(c.payloadOffset + 20);
+          rows.push(["Possible color enum @+20", String(color) + " (" + (COLOR_NAMES[color] || "UnknownColor#" + color) + ")"]);
+        }
+        if (c.payloadSize >= 28) {
+          const extra = view.getInt32(c.payloadOffset + 20, true);
+          let extraInfo = String(extra);
+          if (state.bpex && extra >= 0) {
+            const ok = extra + 98304 <= state.bpex.byteLength;
+            extraInfo += ok ? " (valid in loaded .bpex)" : " (out of range for loaded .bpex)";
+            if (ok) extraInfo += ", slot≈" + Math.floor(extra / 98304);
+          }
+          rows.push(["Possible _extraData @+20", extraInfo + " (used by whiteboard etc.)"]);
+        }
+        if (structGuess.indexOf("Whiteboard") !== -1) {
+          rows.push(["Component-specific", "Whiteboard blueprint: _extraData points to 98,304-byte pixel chunk in .bpex."]);
+        }
+
+        const kv = document.createElement("div");
+        kv.className = "kvs";
+        rows.forEach(function (r) {
+          const k = document.createElement("div");
+          k.className = "k";
+          k.textContent = r[0];
+          const v = document.createElement("div");
+          v.className = "mono";
+          v.textContent = r[1];
+          kv.appendChild(k);
+          kv.appendChild(v);
+        });
+        semanticView.appendChild(kv);
+      }
+
+      function renderRelations() {
+        relationView.innerHTML = "";
+        const p = state.parsedBp;
+        if (!p) {
+          relationView.textContent = "No .bp loaded.";
+          return;
+        }
+        const guidMap = new Map();
+        const view = new DataView(state.bp);
+        p.components.forEach(function (c) {
+          if (c.payloadSize < 16) return;
+          const g = formatGuidDotNet(new Uint8Array(state.bp, c.payloadOffset, 16));
+          if (!guidMap.has(g)) guidMap.set(g, []);
+          guidMap.get(g).push(c.index);
+        });
+        const duplicates = [];
+        guidMap.forEach(function (indices, guid) {
+          if (indices.length > 1) duplicates.push({ guid: guid, indices: indices });
+        });
+
+        const lines = [];
+        lines.push("Components: " + p.components.length);
+        lines.push("Unique GUID candidates: " + guidMap.size);
+        lines.push("Duplicate GUID groups: " + duplicates.length);
+        if (duplicates.length) {
+          const maxShow = Math.min(8, duplicates.length);
+          for (let i = 0; i < maxShow; i++) {
+            lines.push("- " + duplicates[i].guid + " -> [" + duplicates[i].indices.join(", ") + "]");
+          }
+          if (duplicates.length > maxShow) lines.push("... +" + (duplicates.length - maxShow) + " more");
+        }
+        const pre = document.createElement("pre");
+        pre.className = "mono";
+        pre.textContent = lines.join("\n");
+        relationView.appendChild(pre);
+      }
+
       function renderDecodeAndHex() {
         decodeView.innerHTML = "";
         const p = state.parsedBp;
         if (!p || state.selectedComponent < 0 || state.selectedComponent >= p.components.length) {
           decodeView.textContent = "No component selected.";
+          semanticView.textContent = "No component selected.";
           hexView.textContent = "--";
           return;
         }
         const c = p.components[state.selectedComponent];
         const layout = p.structLayouts[c.headerStructIndex];
         const view = new DataView(state.bp);
+        const prefabInfo = state.prefabStats ? state.prefabStats.get(c.prefabHash.toString()) : null;
+        const structGuess = structNameByIndex(c.headerStructIndex);
 
         const summary = document.createElement("div");
         summary.className = "kvs";
         summary.innerHTML =
           "<div class='k'>Component #</div><div class='mono'>" + c.index + "</div>" +
           "<div class='k'>Prefab hash</div><div class='mono'>" + u64Hex(c.prefabHash) + "</div>" +
+          "<div class='k'>Prefab guess</div><div class='mono'>" + (prefabInfo ? prefabInfo.guess : "unknown") + "</div>" +
           "<div class='k'>Layout index</div><div class='mono'>" + c.headerStructIndex + "</div>" +
+          "<div class='k'>Struct guess</div><div class='mono'>" + structGuess + "</div>" +
           "<div class='k'>Layout hash</div><div class='mono'>" + u64Hex(layout.structName) + "</div>" +
           "<div class='k'>Payload range</div><div class='mono'>" + c.payloadOffset + " .. " + (c.payloadOffset + c.payloadSize) + "</div>";
         decodeView.appendChild(summary);
@@ -502,13 +776,14 @@
         wrap.className = "table-wrap";
         wrap.style.marginTop = "0.65rem";
         const tbl = document.createElement("table");
-        tbl.innerHTML = "<thead><tr><th>Field Hash</th><th>Offset</th><th>Size</th><th>Decoded Preview</th></tr></thead>";
+        tbl.innerHTML = "<thead><tr><th>Field Hash</th><th>Alias Guess</th><th>Offset</th><th>Size</th><th>Decoded Preview</th></tr></thead>";
         const tb = document.createElement("tbody");
         layout.fields.forEach(function (f) {
           const d = decodeField(view, c.payloadOffset, f);
           const tr = document.createElement("tr");
           tr.innerHTML =
             "<td class='mono'>" + u64Hex(f.fieldName) + "</td>" +
+            "<td class='mono'>" + fieldAlias(c.headerStructIndex, f) + "</td>" +
             "<td>" + f.fieldOffset + "</td>" +
             "<td>" + f.fieldSizeof + "</td>" +
             "<td class='mono'>" + d.text + "</td>";
@@ -517,6 +792,7 @@
         tbl.appendChild(tb);
         wrap.appendChild(tbl);
         decodeView.appendChild(wrap);
+        renderSemanticView(view, c, layout);
 
         const windowStart = Math.max(0, c.payloadOffset - 32);
         const windowLen = Math.min(view.byteLength - windowStart, c.payloadSize + 64);
@@ -529,6 +805,7 @@
         renderStructs();
         renderComponents();
         renderDiagnostics();
+        renderRelations();
         renderDecodeAndHex();
       }
 
@@ -536,17 +813,21 @@
         clearDiagnostics();
         if (!state.bp) {
           state.parsedBp = null;
+          state.prefabStats = null;
           renderAll();
           return;
         }
         try {
           state.parsedBp = parseBp(state.bp);
+          state.prefabStats = computePrefabStats(state.parsedBp);
           addDiagnostic("info", "Parsed .bp successfully using BlueprintSerializedHeader / StructLayout / StructField / ComponentHeader sequence.");
           addDiagnostic("info", "Reminder: whiteboard pixel blocks are stored in .bpex extra data, not in .bpmeta.");
+          if (state.bpex) addDiagnostic("info", "Loaded .bpex: " + fmtBytes(state.bpex.byteLength));
           setStatus("Parsed .bp: " + state.parsedBp.components.length + " component(s).", "ok");
           if (state.selectedComponent >= state.parsedBp.components.length) state.selectedComponent = -1;
         } catch (e) {
           state.parsedBp = null;
+          state.prefabStats = null;
           addDiagnostic("error", e && e.message ? e.message : String(e));
           setStatus("Failed to parse .bp.", "err");
         }
@@ -562,6 +843,22 @@
           state.selectedComponent = -1;
           doParseBp();
           bpInput.value = "";
+        };
+        r.readAsArrayBuffer(f);
+      });
+
+      bpexInput.addEventListener("change", function () {
+        const f = bpexInput.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = function () {
+          state.bpex = r.result;
+          setStatus("Loaded .bpex (" + fmtBytes(state.bpex.byteLength) + ").", "ok");
+          if (state.parsedBp) {
+            addDiagnostic("info", ".bpex loaded. extraData offset checks enabled.");
+          }
+          renderAll();
+          bpexInput.value = "";
         };
         r.readAsArrayBuffer(f);
       });
@@ -587,11 +884,13 @@
 
       btnReset.addEventListener("click", function () {
         state.bp = null;
+        state.bpex = null;
         state.bpMeta = null;
         state.parsedBp = null;
+        state.prefabStats = null;
         state.selectedComponent = -1;
         clearDiagnostics();
-        setStatus("State reset. Load a .bp and optional .bpmeta.", "");
+        setStatus("State reset. Load a .bp and optional .bpex/.bpmeta.", "");
         renderAll();
       });
 
