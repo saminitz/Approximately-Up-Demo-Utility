@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Approximately Up Blueprint Inspector</title>
+  <style>
+    :root {
+      --bg: #1a1b1e;
+      --surface: #25262b;
+      --border: #373a40;
+      --text: #e8e9ed;
+      --muted: #868e96;
+      --accent: #4dabf7;
+      --accent-hover: #74c0fc;
+      --err: #fa5252;
+      --ok: #69db7c;
+      --warn: #ffd43b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    h1 { margin: 0 0 0.4rem 0; font-size: 1.4rem; }
+    .sub { margin: 0 0 1rem 0; color: var(--muted); }
+    .main-layout { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+    .left-col { flex: 0 1 700px; min-width: 560px; }
+    .right-col { flex: 1 1 360px; min-width: 340px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.95rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+    .file-input-wrap { position: relative; display: inline-block; }
+    .file-input-wrap input[type="file"] {
+      position: absolute; width: 0.1px; height: 0.1px; opacity: 0; z-index: -1;
+    }
+    .file-input-btn, button {
+      display: inline-block;
+      border: none;
+      background: var(--accent);
+      color: #0f1419;
+      border-radius: 6px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .file-input-btn:hover, button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #4b5263; }
+    .status { margin: 0.65rem 0 0 0; font-size: 0.88rem; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    .status.warn { color: var(--warn); }
+    .small { color: var(--muted); font-size: 0.82rem; }
+    .mono { font-family: Consolas, "Courier New", monospace; }
+    .kvs {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.35rem 0.65rem;
+      font-size: 0.9rem;
+    }
+    .kvs .k { color: var(--muted); }
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: 300px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th, td { text-align: left; padding: 0.44rem 0.48rem; border-bottom: 1px solid #333844; white-space: nowrap; }
+    th { position: sticky; top: 0; background: #2b2f36; z-index: 1; color: var(--muted); }
+    tr:hover td { background: #2a303a; }
+    tr.active td { background: #27384d; }
+    .diag-list { margin: 0; padding-left: 1.05rem; font-size: 0.86rem; }
+    .diag-list li { margin: 0.25rem 0; }
+    pre {
+      margin: 0;
+      padding: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #1f2329;
+      overflow: auto;
+      white-space: pre;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <h1>Blueprint Inspector (.bp / .bpmeta)</h1>
+  <p class="sub">Local-only parser based on decompiled game structures from <span class="mono">Assembly-CSharp</span>.</p>
+
+  <div class="main-layout">
+    <div class="left-col">
+      <div class="card">
+        <div class="row">
+          <div class="file-input-wrap">
+            <label for="bpFile" class="file-input-btn">Select .bp file</label>
+            <input type="file" id="bpFile" accept=".bp" />
+          </div>
+          <div class="file-input-wrap">
+            <label for="bpmetaFile" class="file-input-btn">Select .bpmeta file</label>
+            <input type="file" id="bpmetaFile" accept=".bpmeta,.json" />
+          </div>
+          <button id="btnReset" class="btn-secondary" type="button">Reset</button>
+        </div>
+        <p id="status" class="status">Load a <span class="mono">.bp</span> and optional <span class="mono">.bpmeta</span>.</p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Format Map</h3>
+        <div id="formatMap" class="kvs small"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Struct Layouts</h3>
+          <span id="structHint" class="small"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Struct Hash (u64)</th><th>Size</th><th>Fields</th><th>FieldsStart</th></tr>
+            </thead>
+            <tbody id="structBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Components</h3>
+          <span id="compHint" class="small"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Prefab Hash (u64)</th><th>HeaderStructIndex</th><th>PayloadOffset</th><th>PayloadSize</th></tr>
+            </thead>
+            <tbody id="compBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-col">
+      <div class="card">
+        <h3 style="margin-top:0">.bpmeta</h3>
+        <div id="metaView" class="kvs small"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Selected Component Decoding</h3>
+        <div id="decodeView" class="small">No component selected.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Diagnostics</h3>
+        <ul id="diagList" class="diag-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Raw Byte Preview</h3>
+        <p class="small">Shows bytes around selected component payload.</p>
+        <pre id="hexView" class="mono">--</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const bpInput = document.getElementById("bpFile");
+      const bpmetaInput = document.getElementById("bpmetaFile");
+      const statusEl = document.getElementById("status");
+      const formatMapEl = document.getElementById("formatMap");
+      const structBody = document.getElementById("structBody");
+      const compBody = document.getElementById("compBody");
+      const structHint = document.getElementById("structHint");
+      const compHint = document.getElementById("compHint");
+      const metaView = document.getElementById("metaView");
+      const decodeView = document.getElementById("decodeView");
+      const diagList = document.getElementById("diagList");
+      const hexView = document.getElementById("hexView");
+      const btnReset = document.getElementById("btnReset");
+
+      const state = {
+        bp: null,
+        bpMeta: null,
+        parsedBp: null,
+        diagnostics: [],
+        selectedComponent: -1
+      };
+
+      function setStatus(msg, kind) {
+        statusEl.textContent = msg;
+        statusEl.className = "status " + (kind || "");
+      }
+
+      function addDiagnostic(level, msg) {
+        state.diagnostics.push({ level: level, msg: msg });
+      }
+
+      function clearDiagnostics() {
+        state.diagnostics = [];
+      }
+
+      function renderDiagnostics() {
+        diagList.innerHTML = "";
+        if (!state.diagnostics.length) {
+          const li = document.createElement("li");
+          li.textContent = "No diagnostics.";
+          diagList.appendChild(li);
+          return;
+        }
+        state.diagnostics.forEach(function (d) {
+          const li = document.createElement("li");
+          li.textContent = "[" + d.level.toUpperCase() + "] " + d.msg;
+          li.style.color = d.level === "error" ? "var(--err)" : d.level === "warn" ? "var(--warn)" : "var(--text)";
+          diagList.appendChild(li);
+        });
+      }
+
+      function readI32LE(view, at) { return view.getInt32(at, true); }
+      function readU32LE(view, at) { return view.getUint32(at, true); }
+      function readU64LE(view, at) { return view.getBigUint64(at, true); }
+
+      function u64Hex(v) {
+        let s = v.toString(16);
+        while (s.length < 16) s = "0" + s;
+        return "0x" + s;
+      }
+
+      function fmtBytes(n) { return n.toLocaleString("en-US") + " bytes"; }
+
+      function ensure(len, at, need, label) {
+        if (at + need > len) {
+          throw new Error("Out of range while reading " + label + " at offset " + at + " (need " + need + ", file len " + len + ")");
+        }
+      }
+
+      function parseBp(buffer) {
+        const view = new DataView(buffer);
+        const len = view.byteLength;
+        let off = 0;
+        const parsed = {
+          fileLength: len,
+          structsCount: 0,
+          structLayouts: [],
+          components: [],
+          startComponentsOffset: 0,
+          endOffset: 0
+        };
+
+        ensure(len, off, 4, "BlueprintSerializedHeader._structsCount");
+        parsed.structsCount = readI32LE(view, off);
+        off += 4;
+        if (parsed.structsCount < 0 || parsed.structsCount > 10000) {
+          throw new Error("Invalid _structsCount: " + parsed.structsCount);
+        }
+
+        for (let i = 0; i < parsed.structsCount; i++) {
+          ensure(len, off, 16, "BlueprintSerializedStructLayout");
+          const structName = readU64LE(view, off); off += 8;
+          const structSizeof = readI32LE(view, off); off += 4;
+          const fieldsCount = readI32LE(view, off); off += 4;
+          if (structSizeof < 0) throw new Error("Negative _structSizeof in layout #" + i);
+          if (fieldsCount < 0 || fieldsCount > 10000) throw new Error("Invalid _fieldsCount in layout #" + i + ": " + fieldsCount);
+          const fieldsStart = off;
+          const fields = [];
+          for (let f = 0; f < fieldsCount; f++) {
+            ensure(len, off, 16, "BlueprintSerializedStructField");
+            const fieldName = readU64LE(view, off); off += 8;
+            const fieldOffset = readI32LE(view, off); off += 4;
+            const fieldSizeof = readI32LE(view, off); off += 4;
+            fields.push({ fieldName: fieldName, fieldOffset: fieldOffset, fieldSizeof: fieldSizeof });
+            if (fieldOffset < 0 || fieldSizeof < 0) {
+              addDiagnostic("warn", "Struct #" + i + " has field with negative offset/size.");
+            }
+            if (fieldOffset + fieldSizeof > structSizeof) {
+              addDiagnostic("warn", "Struct #" + i + " field exceeds struct payload (offset+size > structSizeof).");
+            }
+          }
+          parsed.structLayouts.push({
+            index: i,
+            structName: structName,
+            structSizeof: structSizeof,
+            fieldsCount: fieldsCount,
+            fieldsStart: fieldsStart,
+            fields: fields
+          });
+        }
+
+        parsed.startComponentsOffset = off;
+        let compIndex = 0;
+        while (off + 16 <= len) {
+          const headerOffset = off;
+          const prefabHash = readU64LE(view, off);
+          off += 8;
+          const headerStructIndex = readI32LE(view, off);
+          off += 4;
+          const reserved = readI32LE(view, off);
+          off += 4;
+          if (headerStructIndex < 0 || headerStructIndex >= parsed.structLayouts.length) {
+            addDiagnostic("error", "Component #" + compIndex + " has invalid headerStructIndex " + headerStructIndex + " at byte " + (headerOffset + 8) + ".");
+            break;
+          }
+          if (reserved !== 0) {
+            addDiagnostic("warn", "Component #" + compIndex + " has non-zero reserved header value (" + reserved + ").");
+          }
+          const layout = parsed.structLayouts[headerStructIndex];
+          const payloadOffset = off;
+          const payloadSize = layout.structSizeof;
+          if (payloadOffset + payloadSize > len) {
+            addDiagnostic("error", "Component #" + compIndex + " payload truncated at offset " + payloadOffset + ".");
+            break;
+          }
+          parsed.components.push({
+            index: compIndex,
+            prefabHash: prefabHash,
+            headerStructIndex: headerStructIndex,
+            headerOffset: headerOffset,
+            payloadOffset: payloadOffset,
+            payloadSize: payloadSize
+          });
+          off += payloadSize;
+          compIndex++;
+        }
+
+        parsed.endOffset = off;
+        if (off < len) {
+          addDiagnostic("warn", "Trailing " + (len - off) + " byte(s) after last parsed component.");
+        }
+        return parsed;
+      }
+
+      function parseBpMeta(text) {
+        const data = JSON.parse(text);
+        const out = {
+          raw: data,
+          name: data && typeof data._name === "string" ? data._name : null,
+          folder: data && typeof data._folder === "string" ? data._folder : null,
+          version: data && typeof data._version === "string" ? data._version : null
+        };
+        if (!out.name || !out.folder || !out.version) {
+          addDiagnostic("warn", ".bpmeta is valid JSON but missing expected string fields (_name, _folder, _version).");
+        }
+        return out;
+      }
+
+      function rowKV(k, v) {
+        const dk = document.createElement("div");
+        dk.className = "k";
+        dk.textContent = k;
+        const dv = document.createElement("div");
+        dv.className = "mono";
+        dv.textContent = v;
+        formatMapEl.appendChild(dk);
+        formatMapEl.appendChild(dv);
+      }
+
+      function renderFormatMap() {
+        formatMapEl.innerHTML = "";
+        if (!state.parsedBp) {
+          rowKV("Status", "No .bp loaded");
+          return;
+        }
+        const p = state.parsedBp;
+        rowKV("File length", fmtBytes(p.fileLength));
+        rowKV("Structs count", String(p.structsCount));
+        rowKV("Struct table ends at", String(p.startComponentsOffset));
+        rowKV("Components parsed", String(p.components.length));
+        rowKV("Last consumed byte", String(p.endOffset));
+        rowKV("Unconsumed bytes", String(Math.max(0, p.fileLength - p.endOffset)));
+      }
+
+      function renderMeta() {
+        metaView.innerHTML = "";
+        const add = function (k, v) {
+          const a = document.createElement("div");
+          a.className = "k";
+          a.textContent = k;
+          const b = document.createElement("div");
+          b.className = "mono";
+          b.textContent = v;
+          metaView.appendChild(a);
+          metaView.appendChild(b);
+        };
+
+        if (!state.bpMeta) {
+          add("State", "No .bpmeta loaded");
+          return;
+        }
+        add("_name", state.bpMeta.name || "(missing)");
+        add("_folder", state.bpMeta.folder || "(missing)");
+        add("_version", state.bpMeta.version || "(missing)");
+      }
+
+      function renderStructs() {
+        structBody.innerHTML = "";
+        const p = state.parsedBp;
+        if (!p) {
+          structHint.textContent = "";
+          return;
+        }
+        structHint.textContent = p.structLayouts.length + " layout(s)";
+        p.structLayouts.forEach(function (s) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + s.index + "</td>" +
+            "<td class='mono'>" + u64Hex(s.structName) + "</td>" +
+            "<td>" + s.structSizeof + "</td>" +
+            "<td>" + s.fieldsCount + "</td>" +
+            "<td class='mono'>" + s.fieldsStart + "</td>";
+          structBody.appendChild(tr);
+        });
+      }
+
+      function renderComponents() {
+        compBody.innerHTML = "";
+        const p = state.parsedBp;
+        if (!p) {
+          compHint.textContent = "";
+          return;
+        }
+        compHint.textContent = p.components.length + " component(s)";
+        p.components.forEach(function (c) {
+          const tr = document.createElement("tr");
+          tr.className = c.index === state.selectedComponent ? "active" : "";
+          tr.innerHTML =
+            "<td>" + c.index + "</td>" +
+            "<td class='mono'>" + u64Hex(c.prefabHash) + "</td>" +
+            "<td>" + c.headerStructIndex + "</td>" +
+            "<td class='mono'>" + c.payloadOffset + "</td>" +
+            "<td>" + c.payloadSize + "</td>";
+          tr.addEventListener("click", function () {
+            state.selectedComponent = c.index;
+            renderComponents();
+            renderDecodeAndHex();
+          });
+          compBody.appendChild(tr);
+        });
+      }
+
+      function sliceHex(view, start, len) {
+        const end = Math.min(view.byteLength, start + len);
+        const chunks = [];
+        for (let i = start; i < end; i++) {
+          const b = view.getUint8(i).toString(16).padStart(2, "0");
+          chunks.push(b);
+        }
+        return chunks.join(" ");
+      }
+
+      function decodeField(view, base, field) {
+        const fStart = base + field.fieldOffset;
+        const size = field.fieldSizeof;
+        if (fStart < 0 || fStart + size > view.byteLength) {
+          return { kind: "out_of_range", text: "out_of_range" };
+        }
+        const hex = sliceHex(view, fStart, size);
+        const out = ["hex: " + hex];
+        if (size >= 1) out.push("u8: " + view.getUint8(fStart));
+        if (size >= 2) out.push("i16: " + view.getInt16(fStart, true) + " | u16: " + view.getUint16(fStart, true));
+        if (size >= 4) out.push("i32: " + view.getInt32(fStart, true) + " | u32: " + view.getUint32(fStart, true) + " | f32: " + view.getFloat32(fStart, true));
+        if (size >= 8) out.push("i64/u64: " + view.getBigInt64(fStart, true) + " / " + view.getBigUint64(fStart, true));
+        return { kind: "ok", text: out.join(" ; ") };
+      }
+
+      function renderDecodeAndHex() {
+        decodeView.innerHTML = "";
+        const p = state.parsedBp;
+        if (!p || state.selectedComponent < 0 || state.selectedComponent >= p.components.length) {
+          decodeView.textContent = "No component selected.";
+          hexView.textContent = "--";
+          return;
+        }
+        const c = p.components[state.selectedComponent];
+        const layout = p.structLayouts[c.headerStructIndex];
+        const view = new DataView(state.bp);
+
+        const summary = document.createElement("div");
+        summary.className = "kvs";
+        summary.innerHTML =
+          "<div class='k'>Component #</div><div class='mono'>" + c.index + "</div>" +
+          "<div class='k'>Prefab hash</div><div class='mono'>" + u64Hex(c.prefabHash) + "</div>" +
+          "<div class='k'>Layout index</div><div class='mono'>" + c.headerStructIndex + "</div>" +
+          "<div class='k'>Layout hash</div><div class='mono'>" + u64Hex(layout.structName) + "</div>" +
+          "<div class='k'>Payload range</div><div class='mono'>" + c.payloadOffset + " .. " + (c.payloadOffset + c.payloadSize) + "</div>";
+        decodeView.appendChild(summary);
+
+        const wrap = document.createElement("div");
+        wrap.className = "table-wrap";
+        wrap.style.marginTop = "0.65rem";
+        const tbl = document.createElement("table");
+        tbl.innerHTML = "<thead><tr><th>Field Hash</th><th>Offset</th><th>Size</th><th>Decoded Preview</th></tr></thead>";
+        const tb = document.createElement("tbody");
+        layout.fields.forEach(function (f) {
+          const d = decodeField(view, c.payloadOffset, f);
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td class='mono'>" + u64Hex(f.fieldName) + "</td>" +
+            "<td>" + f.fieldOffset + "</td>" +
+            "<td>" + f.fieldSizeof + "</td>" +
+            "<td class='mono'>" + d.text + "</td>";
+          tb.appendChild(tr);
+        });
+        tbl.appendChild(tb);
+        wrap.appendChild(tbl);
+        decodeView.appendChild(wrap);
+
+        const windowStart = Math.max(0, c.payloadOffset - 32);
+        const windowLen = Math.min(view.byteLength - windowStart, c.payloadSize + 64);
+        hexView.textContent = "offset " + windowStart + " len " + windowLen + "\n" + sliceHex(view, windowStart, windowLen);
+      }
+
+      function renderAll() {
+        renderFormatMap();
+        renderMeta();
+        renderStructs();
+        renderComponents();
+        renderDiagnostics();
+        renderDecodeAndHex();
+      }
+
+      function doParseBp() {
+        clearDiagnostics();
+        if (!state.bp) {
+          state.parsedBp = null;
+          renderAll();
+          return;
+        }
+        try {
+          state.parsedBp = parseBp(state.bp);
+          addDiagnostic("info", "Parsed .bp successfully using BlueprintSerializedHeader / StructLayout / StructField / ComponentHeader sequence.");
+          addDiagnostic("info", "Reminder: whiteboard pixel blocks are stored in .bpex extra data, not in .bpmeta.");
+          setStatus("Parsed .bp: " + state.parsedBp.components.length + " component(s).", "ok");
+          if (state.selectedComponent >= state.parsedBp.components.length) state.selectedComponent = -1;
+        } catch (e) {
+          state.parsedBp = null;
+          addDiagnostic("error", e && e.message ? e.message : String(e));
+          setStatus("Failed to parse .bp.", "err");
+        }
+        renderAll();
+      }
+
+      bpInput.addEventListener("change", function () {
+        const f = bpInput.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = function () {
+          state.bp = r.result;
+          state.selectedComponent = -1;
+          doParseBp();
+          bpInput.value = "";
+        };
+        r.readAsArrayBuffer(f);
+      });
+
+      bpmetaInput.addEventListener("change", function () {
+        const f = bpmetaInput.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = function () {
+          try {
+            state.bpMeta = parseBpMeta(String(r.result || ""));
+            setStatus("Loaded .bpmeta successfully.", "ok");
+          } catch (e) {
+            state.bpMeta = null;
+            addDiagnostic("error", "Failed to parse .bpmeta JSON: " + (e && e.message ? e.message : String(e)));
+            setStatus("Failed to parse .bpmeta.", "err");
+          }
+          renderAll();
+          bpmetaInput.value = "";
+        };
+        r.readAsText(f);
+      });
+
+      btnReset.addEventListener("click", function () {
+        state.bp = null;
+        state.bpMeta = null;
+        state.parsedBp = null;
+        state.selectedComponent = -1;
+        clearDiagnostics();
+        setStatus("State reset. Load a .bp and optional .bpmeta.", "");
+        renderAll();
+      });
+
+      renderAll();
+    })();
+  </script>
+</body>
+</html>
