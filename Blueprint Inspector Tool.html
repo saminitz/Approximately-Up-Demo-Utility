@@ -97,9 +97,16 @@
     #compBody tr {
       cursor: pointer;
     }
+    .visitor-count-badge {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
+  <img class="visitor-count-badge" src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fsaminitz.github.io%2FApproximately-Up-Demo-Utility%2FBlueprint%2520Inspector%2520Tool.html&label=Visitor+Count&icon=people&color=%234dabf7&message=&style=flat&tz=UTC" alt="Visitor Count" />
   <h1>Blueprint Inspector (.bp / .bpmeta)</h1>
   <p class="sub">Local-only parser based on decompiled game structures from <span class="mono">Assembly-CSharp</span>.</p>
 
