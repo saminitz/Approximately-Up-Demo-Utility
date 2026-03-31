@@ -37,12 +37,14 @@ $RECYCLE.BIN/
 # Binaries
 Assembly-CSharp/*
 Assembly-CSharp.sln
+
 # General
 .DS_Store
 __MACOSX/
 .AppleDouble
 .LSOverride
-Icon[]
+Icon[
+]
 
 # Thumbnails
 ._*
