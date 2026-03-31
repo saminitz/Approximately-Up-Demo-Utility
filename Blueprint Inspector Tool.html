@@ -112,10 +112,6 @@
             <input type="file" id="bpFile" accept=".bp" />
           </div>
           <div class="file-input-wrap">
-            <label for="bpexFile" class="file-input-btn">Select .bpex file (optional)</label>
-            <input type="file" id="bpexFile" accept=".bpex" />
-          </div>
-          <div class="file-input-wrap">
             <label for="bpmetaFile" class="file-input-btn">Select .bpmeta file</label>
             <input type="file" id="bpmetaFile" accept=".bpmeta,.json" />
           </div>
@@ -197,7 +193,6 @@
   <script>
     (function () {
       const bpInput = document.getElementById("bpFile");
-      const bpexInput = document.getElementById("bpexFile");
       const bpmetaInput = document.getElementById("bpmetaFile");
       const statusEl = document.getElementById("status");
       const formatMapEl = document.getElementById("formatMap");
@@ -267,7 +262,6 @@
 
       const state = {
         bp: null,
-        bpex: null,
         bpMeta: null,
         parsedBp: null,
         prefabStats: null,
@@ -682,11 +676,6 @@
         if (c.payloadSize >= 28) {
           const extra = view.getInt32(c.payloadOffset + 20, true);
           let extraInfo = String(extra);
-          if (state.bpex && extra >= 0) {
-            const ok = extra + 98304 <= state.bpex.byteLength;
-            extraInfo += ok ? " (valid in loaded .bpex)" : " (out of range for loaded .bpex)";
-            if (ok) extraInfo += ", slot≈" + Math.floor(extra / 98304);
-          }
           rows.push(["Possible _extraData @+20", extraInfo + " (used by whiteboard etc.)"]);
         }
         if (structGuess.indexOf("Whiteboard") !== -1) {
@@ -822,7 +811,6 @@
           state.prefabStats = computePrefabStats(state.parsedBp);
           addDiagnostic("info", "Parsed .bp successfully using BlueprintSerializedHeader / StructLayout / StructField / ComponentHeader sequence.");
           addDiagnostic("info", "Reminder: whiteboard pixel blocks are stored in .bpex extra data, not in .bpmeta.");
-          if (state.bpex) addDiagnostic("info", "Loaded .bpex: " + fmtBytes(state.bpex.byteLength));
           setStatus("Parsed .bp: " + state.parsedBp.components.length + " component(s).", "ok");
           if (state.selectedComponent >= state.parsedBp.components.length) state.selectedComponent = -1;
         } catch (e) {
@@ -843,22 +831,6 @@
           state.selectedComponent = -1;
           doParseBp();
           bpInput.value = "";
-        };
-        r.readAsArrayBuffer(f);
-      });
-
-      bpexInput.addEventListener("change", function () {
-        const f = bpexInput.files[0];
-        if (!f) return;
-        const r = new FileReader();
-        r.onload = function () {
-          state.bpex = r.result;
-          setStatus("Loaded .bpex (" + fmtBytes(state.bpex.byteLength) + ").", "ok");
-          if (state.parsedBp) {
-            addDiagnostic("info", ".bpex loaded. extraData offset checks enabled.");
-          }
-          renderAll();
-          bpexInput.value = "";
         };
         r.readAsArrayBuffer(f);
       });
@@ -884,13 +856,12 @@
 
       btnReset.addEventListener("click", function () {
         state.bp = null;
-        state.bpex = null;
         state.bpMeta = null;
         state.parsedBp = null;
         state.prefabStats = null;
         state.selectedComponent = -1;
         clearDiagnostics();
-        setStatus("State reset. Load a .bp and optional .bpex/.bpmeta.", "");
+        setStatus("State reset. Load a .bp and optional .bpmeta.", "");
         renderAll();
       });
 
