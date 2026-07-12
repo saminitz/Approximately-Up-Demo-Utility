@@ -6,7 +6,7 @@ game-importable blueprint bundle (`.bp` + `.bpmeta` [+ `.bpex`]) as a downloadab
 ZIP.
 
 - **Stack:** React + Vite + TypeScript, npm.
-- **Version:** `0.1.3` (bump on every change — see `package.json`).
+- **Version:** `0.1.6` (bump on every change — see `package.json`).
 
 ```
 Formula ──► lexer ──► parser (AST) ──► compiler (block graph, CSE) ──►
@@ -60,11 +60,14 @@ clear error message.
 ```
 Logic-Generator/
 ├─ index.html
-├─ package.json            # version 0.1.3
+├─ package.json            # version 0.1.6
 ├─ vite.config.ts          # vite + vitest config
 ├─ tsconfig*.json
 ├─ scripts/
-│  └─ extractHeader.mjs     # dev codegen: reads a reference .bp header (READ-ONLY) -> bundled asset
+│  ├─ extractHeader.mjs     # dev codegen: reads a reference .bp header (READ-ONLY) -> bundled asset
+│  └─ makeSample.ts         # regenerate samples/PD_Sample_Logic-Generator_*.zip
+├─ data/
+│  └─ prefab-map.json       # authoritative Block List hash table (human reference)
 └─ src/
    ├─ main.tsx / App.tsx / App.css / index.css
    ├─ formula/             # language front-end
@@ -113,31 +116,52 @@ touching the rest of the app. Until then the exported ZIP is **structurally vali
 and parses to the exact byte**, but is *best-effort* for in-game correctness.
 
 1. **Operator → SCPrefab hashes** (`src/serializer/prefabTable.ts`).
-   The name→hash algorithm `AsciiHash64` is uncracked (see `scratch/REPORT.md §5`).
-   - **Confirmed:** `Constant`, `Differentiator`, `Accumulator`, `Cable`.
-   - **Placeholder (TODO):** every other operator (Adder, Subtractor, Multiplier,
-     Divider, trig, logic, routing, Remapper, Threshold, Memory, and the
-     input/output terminals). They currently reuse a valid generic signal-processor
-     identity so the file loads; the block *type* will be wrong until the real hash
-     is supplied. The UI flags exactly which ops are provisional per compile.
-2. **I/O terminal prefabs** — the real "named input/output" block prefabs are not
-   yet identified (using the generic placeholder).
-3. **Cable geometry** (`bpWriter.ts`, `emitCables`). We emit one cable-cell record
-   per routed grid cell, but `_shape`/`_type` (the connectivity/orientation enum)
-   are unknown (`scratch/REPORT.md §8`), so they are written as `0`. Cables are
-   therefore positional placeholders, not wired connectivity. Toggle off if the
-   loader rejects zero-shape cables.
-4. **`_gt` open question.** The layout above is proven from the game's Encode/Decode
-   machine code (`GT_REPORT.md`). A separate empirical pass observed on-disk `_gt`
-   values that look bit-diffused (`REPORT.md §7`). If in-game tests confirm an extra
-   reversible permutation, wrap it inside `packGt`/`unpackGt` in `gtCodec.ts` — no
-   other module changes.
+   `AsciiHash64` is uncracked — hashes must be **read from real `.bp` files**, not computed
+   from names (see *Prefab hash extraction* below).
+   - **Confirmed (v0.1.6, Block List blueprint):** all 19 formula OpKeys present in the
+     reference row plus 9 extra blocks (Logic Value, Addition Array, Joystick Splitter,
+     six sensor meters). Full table: `data/prefab-map.json`.
+   - **Fixed vs v0.1.5:** Divider (`0x00766e…`, was Addition Array `0x3b80bd…`),
+     Router4 (`0x0124da…`, was `0x1fa8fb…`).
+   - **Placeholder (TODO):** trig, `condition`, and other ops not in the Block List row.
+2. **I/O terminal prefabs** — wireless transmitter hash confirmed; channel assignment is heuristic.
+3. **Cable geometry** — per-cell `_gt.rot` from connectivity map; `_shape` still `0` in some cases.
+4. **`_gt`** — plain pack `X|Y<<9|Z<<18|rot<<27` (GT_REPORT_v2.md). Default block rot is
+   `ROT_LOGIC` (index **3**, 180° Y flip from reference upright index 6).
 
-**To finalize:** crack `AsciiHash64` (or dump a few known hashes in-game), fill the
-real hashes into `prefabTable.ts`, add the `_shape` enum table for cables, and
-confirm `_gt` — the serializer then produces fully correct blueprints unchanged.
+### Prefab hash extraction (can hashes be READ instead of computed?)
+
+**Yes — reading from real blueprints is the reliable method.** Computing from
+`SC_Adder`-style strings failed (`scratch/crackHash*.js`, `scratch/REPORT.md §5`).
+
+1. **Parse `.bp` payload** — each record is `prefab(8) | idx(4) | entityId(20) | _gt(4) | … | trailing(4)`.
+   Signal processors use `idx=0`; the 8-byte `prefab` ulong is the block identity.
+2. **List distinct idx=0 hashes** — from the repo root:
+   `node scratch/analyzeEntities.js` (uses `scratch/entities_*.json`), or
+   `node scratch/walkPayload.js path/to/file.bp` to dump one file.
+3. **Label by topology** — match prefab counts to known circuit structure (e.g. PD Target
+   Compact `feca9562…`: 2× mul `0x0407…`, 1× sub `0x1c97…`, 1× router2 `0x5929…`, 1× add
+   `0x3b7b…`). Cross-check display names in `scratch/game-mined/Localization.csv`
+   (`SC_<Name>_Name` keys in `prefab_names_SCkeys.txt`).
+4. **Alternatives:** runtime dump via BepInEx calling `BurstUtility.AsciiHash64`, or
+   AssetRipper prefab inspection — still empirical, not a closed-form formula.
 
 ## Changelog
+
+### 0.1.6
+- **Prefab map:** parsed user Block List blueprint (`1845836d…`, bpmeta v0.1.139) —
+  28 logic blocks, left-to-right by Z; exported to `data/prefab-map.json`.
+- **Fix (prefabs):** Divider and Router4 hashes corrected; added not/xor/min/max/threshold/
+  remap/memory/signalRouter3 and sensor-meter extras.
+- **Fix (parser):** `scratch/parseBlockList.js` applies disk field offset (+4 after 20-byte entity id).
+- Tests: expanded serializer prefab assertions for Block List ground truth.
+- Sample: `samples/PD_Sample_Logic-Generator_0.1.6.zip`.
+
+### 0.1.5
+- **Fix (rotation):** default logic-block rot `6` → `3` (`ROT_LOGIC`, 180° Y from upright).
+- **Fix (prefabs):** corrected Adder/Multiplier/Router2/Router4 hashes from mined blueprints.
+- **Fix (compiler):** insert Data Router 2/4 on fan-out; enforce ≤2 inputs per block.
+- Sample: `samples/PD_Sample_Logic-Generator_0.1.5.zip` (11 blocks incl. 1× Router2).
 
 ### 0.1.1
 - **Fix (rotation):** default block rotation changed from the identity index `16`

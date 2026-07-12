@@ -136,3 +136,30 @@ export const FN_TO_OP: Record<string, OpKey> = (() => {
   }
   return m;
 })();
+
+/**
+ * Ground-truth SCPrefab hashes from the in-game Block List blueprint
+ * (1845836d…, bpmeta v0.1.139). See `data/prefab-map.json` for the full table.
+ * Keys match OPS labels where an OpKey exists.
+ */
+export const BLOCK_LIST_HASHES: Partial<Record<OpKey, string>> = {
+  constant: "0x9fe80f5af364c2ec",
+  not: "0x72696a5f8c4b74de",
+  add: "0x3b7bbce726d0cc7f",
+  sub: "0x1c97aba9f33d90c8",
+  mul: "0x0407f3d568e89e48",
+  div: "0x00766e1e0f9c8699",
+  min: "0x5bd117aa5c9fdf0a",
+  max: "0x6d2fdb1b68703078",
+  xor: "0xeb8fe77ce46f3590",
+  threshold: "0x72a389e0f97da2d6",
+  remap: "0xf45687f85cf62f59",
+  router2: "0x592905a5e74d8aaa",
+  router4: "0x0124dacc6531029a",
+  signalRouter3: "0x4224391ea20c8575",
+  deriv: "0xa198e2ba8fe8844f",
+  memory: "0x876ad2fe23bf2867",
+  integ: "0x5e3e015590584dcc",
+  input: "0xfb42bddabfe173ed",
+  output: "0xfb42bddabfe173ed",
+};

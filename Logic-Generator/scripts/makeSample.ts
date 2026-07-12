@@ -18,11 +18,11 @@ import { GT_DATA_OFFSET } from "../src/serializer/bpWriter";
 
 import { packGt, unpackGt } from "../src/serializer/gtCodec";
 
-import { ROT_UPRIGHT } from "../src/serializer/rotations";
+import { ROT_LOGIC } from "../src/serializer/rotations";
 
 
 
-const VERSION = "0.1.3";
+const VERSION = "0.1.6";
 
 const FORMULA = "u = Kp*(t - p) + Kd*deriv(t - p)";
 
@@ -64,7 +64,7 @@ const sample = res.laid.nodes.slice(0, 5).map((n) => {
 
   const c = n.cell!;
 
-  const gt = packGt({ x: c.x, y: c.y, z: c.z, rot: ROT_UPRIGHT });
+  const gt = packGt({ x: c.x, y: c.y, z: c.z, rot: ROT_LOGIC });
 
   return {
 

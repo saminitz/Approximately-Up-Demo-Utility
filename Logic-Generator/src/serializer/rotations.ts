@@ -39,10 +39,14 @@ export const ROTATIONS: readonly Quaternion[] = [
 export const ROT_IDENTITY = 16;
 
 /**
- * Default rotation index for authored logic blocks (upright).
- *
- * GROUND TRUTH (GT_REPORT_v2.md §5): record 0 of the PD Target Distance blueprint
- * stores `_gt=0x332030D8` → rot=6 (`(0, -√½, 0, √½)`, −90° about +Y). The earlier
- * `rot=0` reading came from mis-identifying the GUID tail at data+0x10 as `_gt`.
+ * Reference upright rotation from GT_REPORT_v2.md §5 (PD Target Distance record 0):
+ * `_gt=0x332030D8` → rot=6 (`(0, -√½, 0, √½)`, −90° about +Y).
  */
 export const ROT_UPRIGHT = 6;
+
+/**
+ * Default rotation for generated logic blocks: 180° yaw (+Y) from {@link ROT_UPRIGHT},
+ * so input ports face the compiler's left-to-right cable routing (rot 6 had ports swapped).
+ * rot 6 = −90° Y, rot 3 = +90° Y → 180° apart.
+ */
+export const ROT_LOGIC = 3;

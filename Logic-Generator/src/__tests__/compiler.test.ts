@@ -27,6 +27,20 @@ describe("compiler", () => {
     expect(count(ops, "mul")).toBe(1);
   });
 
+  it("inserts Router2 when a signal fans out to two consumers", () => {
+    const g = compileFormula("u = Kp*(t - p) + Kd*deriv(t - p)");
+    const ops = g.nodes.map((n) => n.op);
+    expect(ops.filter((o) => o === "router2")).toHaveLength(1);
+    expect(ops.filter((o) => o === "sub")).toHaveLength(1);
+
+    const outDeg = new Map<string, number>();
+    for (const e of g.edges) {
+      const k = `${e.from.blockId}:${e.from.port}`;
+      outDeg.set(k, (outDeg.get(k) ?? 0) + 1);
+    }
+    for (const [, v] of outDeg) expect(v).toBeLessThanOrEqual(1);
+  });
+
   it("reuses a named intermediate signal instead of duplicating it", () => {
     const g = compileFormula("e = t - p\nu = Kp*e + Kd*e");
     const ops = g.nodes.map((n) => n.op);

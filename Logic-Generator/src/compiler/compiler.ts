@@ -203,6 +203,8 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
     connect(src, 0, outId, 0);
   }
 
+  insertRouters(nodes, edges, addNode, connect);
+
   return { nodes, edges, inputs, outputs };
 }
 
@@ -233,4 +235,112 @@ function signature(op: OpKey, childSigs: string[]): string {
 
 function formatConst(v: number): string {
   return Number.isInteger(v) ? String(v) : String(+v.toFixed(4));
+}
+
+/** Max input ports on a normal (single-cell) signal processor block. */
+const MAX_INPUT_PORTS = 2;
+
+type AddNodeFn = (n: Omit<BlockNode, "id">) => string;
+type ConnectFn = (fromId: string, fromPort: number, toId: string, toPort: number) => void;
+
+/**
+ * Replace implicit fan-out with Data Router 2 / 4 nodes (game forbids wire splitting).
+ * Recursively chains routers when a signal feeds more than four consumers.
+ */
+function insertRouters(
+  nodes: BlockNode[],
+  edges: Edge[],
+  addNode: AddNodeFn,
+  connect: ConnectFn,
+): void {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+
+  const assertInputCapacity = (toId: string, toPort: number) => {
+    const target = byId.get(toId);
+    if (!target) return;
+    const maxIn = OPS[target.op].inputs.length;
+    if (maxIn > 0 && maxIn <= MAX_INPUT_PORTS && toPort >= maxIn) {
+      throw new FormulaError(
+        `Block '${target.label}' accepts at most ${maxIn} input(s); port ${toPort} is out of range.`,
+        0,
+      );
+    }
+  };
+
+  const fanoutGroups = new Map<string, Edge[]>();
+  for (const e of edges) {
+    const key = `${e.from.blockId}:${e.from.port}`;
+    const list = fanoutGroups.get(key) ?? [];
+    list.push(e);
+    fanoutGroups.set(key, list);
+  }
+
+  const splitEdges = (
+    sourceId: string,
+    sourcePort: number,
+    group: Edge[],
+  ): void => {
+    const n = group.length;
+    if (n <= 1) return;
+
+    if (n <= 2) {
+      const rid = addRouter("router2", addNode);
+      connect(sourceId, sourcePort, rid, 0);
+      for (let i = 0; i < n; i++) {
+        const e = group[i];
+        assertInputCapacity(e.to.blockId, e.to.port);
+        connect(rid, i, e.to.blockId, e.to.port);
+      }
+      return;
+    }
+
+    if (n <= 4) {
+      const rid = addRouter("router4", addNode);
+      connect(sourceId, sourcePort, rid, 0);
+      for (let i = 0; i < n; i++) {
+        const e = group[i];
+        assertInputCapacity(e.to.blockId, e.to.port);
+        connect(rid, i, e.to.blockId, e.to.port);
+      }
+      return;
+    }
+
+    // n > 4: Router4 for first three consumers, recurse on output 3 for the rest.
+    const rid = addRouter("router4", addNode);
+    connect(sourceId, sourcePort, rid, 0);
+    const direct = group.slice(0, 3);
+    const rest = group.slice(3);
+    for (let i = 0; i < direct.length; i++) {
+      const e = direct[i];
+      assertInputCapacity(e.to.blockId, e.to.port);
+      connect(rid, i, e.to.blockId, e.to.port);
+    }
+    splitEdges(rid, 3, rest);
+  };
+
+  const toRemove = new Set<Edge>();
+  for (const [, group] of fanoutGroups) {
+    if (group.length <= 1) continue;
+    for (const e of group) toRemove.add(e);
+    const head = group[0];
+    splitEdges(head.from.blockId, head.from.port, group);
+  }
+
+  if (toRemove.size > 0) {
+    let w = 0;
+    for (let r = 0; r < edges.length; r++) {
+      if (!toRemove.has(edges[r])) edges[w++] = edges[r];
+    }
+    edges.length = w;
+  }
+}
+
+function addRouter(op: "router2" | "router4", addNode: AddNodeFn): string {
+  const spec = OPS[op];
+  return addNode({
+    op,
+    label: spec.label,
+    inputs: [...spec.inputs],
+    outputs: [...spec.outputs],
+  });
 }

@@ -13,11 +13,12 @@ import type { LaidOutGraph } from "../layout/layout";
 import { BinaryWriter } from "./binaryWriter";
 import { packGt } from "./gtCodec";
 import { getReferenceHeader, findFieldOffset, type HeaderStruct } from "./header";
-import { ROT_UPRIGHT } from "./rotations";
+import { ROT_LOGIC } from "./rotations";
 import {
   CABLE_PREFAB,
   FIELD_HASH,
   PREFAB_TABLE,
+  WIRELESS_DEFAULT_CHANNEL,
 } from "./prefabTable";
 
 /** Bytes reserved for the per-entity id prefix (Hash128 + 4-byte tail). */
@@ -38,7 +39,7 @@ export interface BpWriteOptions {
 
 export const DEFAULT_BP_OPTIONS: BpWriteOptions = {
   emitCables: true,
-  rot: ROT_UPRIGHT,
+  rot: ROT_LOGIC,
 };
 
 export interface BpBuildResult {
@@ -104,8 +105,7 @@ function writeRecord(
     gt: number;
     value?: number;
     col?: number;
-    shape?: number;
-    type?: number;
+    channel?: number;
   },
   trailing = 0,
 ): void {
@@ -119,13 +119,9 @@ function writeRecord(
     const vOff = adjustedFieldOffset(struct, FIELD_HASH.value);
     if (vOff !== null) writeF32(dv, vOff, struct.sizeof, fields.value);
   }
-  if (fields.shape !== undefined) {
-    const sOff = adjustedFieldOffset(struct, FIELD_HASH.shape);
-    if (sOff !== null) writeU8(dv, sOff, struct.sizeof, fields.shape);
-  }
-  if (fields.type !== undefined) {
-    const tOff = adjustedFieldOffset(struct, FIELD_HASH.type);
-    if (tOff !== null) writeU8(dv, tOff, struct.sizeof, fields.type);
+  if (fields.channel !== undefined) {
+    const chOff = adjustedFieldOffset(struct, FIELD_HASH.channel);
+    if (chOff !== null) writeU32(dv, chOff, struct.sizeof, fields.channel);
   }
   const colOff = adjustedFieldOffset(struct, FIELD_HASH.col);
   if (colOff !== null) writeU8(dv, colOff, struct.sizeof, fields.col ?? 0);
@@ -159,10 +155,12 @@ export function buildBp(
     const entry = PREFAB_TABLE[node.op];
     const struct = header.structs[entry.structIndex];
     const gt = packGt({ x: cell.x, y: cell.y, z: cell.z, rot: opts.rot });
+    const isWireless = entry.structIndex === PREFAB_TABLE.input.structIndex;
     writeRecord(w, struct, entry.hash, {
       entityId: entityId(),
       gt,
       value: node.op === "constant" ? node.value ?? 0 : undefined,
+      channel: isWireless ? WIRELESS_DEFAULT_CHANNEL : undefined,
       col: 0,
     });
     blockRecords++;
@@ -172,7 +170,7 @@ export function buildBp(
   if (opts.emitCables) {
     const cableStruct = header.structs[CABLE_PREFAB.structIndex];
     for (const cell of laid.cableCells) {
-      const gt = packGt({ x: cell.x, y: cell.y, z: cell.z, rot: opts.rot });
+      const gt = packGt({ x: cell.x, y: cell.y, z: cell.z, rot: cell.rot });
       writeRecord(
         w,
         cableStruct,
@@ -180,8 +178,6 @@ export function buildBp(
         {
           entityId: entityId(),
           gt,
-          shape: cell.shape,
-          type: cell.type,
           col: 0,
         },
         cell.trailing,

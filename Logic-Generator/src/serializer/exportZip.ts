@@ -3,7 +3,7 @@ import type { LaidOutGraph } from "../layout/layout";
 import { buildBp, DEFAULT_BP_OPTIONS, type BpBuildResult } from "./bpWriter";
 import { buildBpMeta, type BpMeta } from "./bpmeta";
 import { buildBpex } from "./bpex";
-import { ROT_UPRIGHT } from "./rotations";
+import { ROT_LOGIC } from "./rotations";
 
 export interface ExportOptions extends BpMeta {
   /** Include the 192 KiB .bpex sidecar (default true). */
@@ -43,7 +43,7 @@ export function exportBlueprintZip(
   const build = buildBp(laid, {
     ...DEFAULT_BP_OPTIONS,
     emitCables: opts.emitCables ?? true,
-    rot: ROT_UPRIGHT,
+    rot: ROT_LOGIC,
   });
   const meta = buildBpMeta(opts);
 

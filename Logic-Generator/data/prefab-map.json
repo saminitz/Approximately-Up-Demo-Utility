@@ -1,0 +1,221 @@
+{
+  "_source": "1845836d-08a7-4502-970a-61d528b29c6d Block List.bp",
+  "_bpmetaVersion": "0.1.139",
+  "_logicGeneratorVersion": "0.1.6",
+  "_parsedAt": "2026-07-13",
+  "_note": "Left-to-right order by descending Z; 28 logic blocks, no cables/frames.",
+  "blocks": [
+    {
+      "order": 1,
+      "name": "Constant",
+      "scPrefab": "0x9fe80f5af364c2ec",
+      "structIdx": 5,
+      "opKey": "constant",
+      "validation": { "_value": 187.4 }
+    },
+    {
+      "order": 2,
+      "name": "Logic Value",
+      "scPrefab": "0xe1efc8ed6895b620",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 3,
+      "name": "Logic Gate Not",
+      "scPrefab": "0x72696a5f8c4b74de",
+      "structIdx": 0,
+      "opKey": "not"
+    },
+    {
+      "order": 4,
+      "name": "Addition Array",
+      "scPrefab": "0x3b80bdebfdb10fa9",
+      "structIdx": 0,
+      "opKey": null,
+      "note": "2-cell block; was misused as Divider hash in v0.1.5"
+    },
+    {
+      "order": 5,
+      "name": "Adder",
+      "scPrefab": "0x3b7bbce726d0cc7f",
+      "structIdx": 0,
+      "opKey": "add"
+    },
+    {
+      "order": 6,
+      "name": "Subtractor",
+      "scPrefab": "0x1c97aba9f33d90c8",
+      "structIdx": 0,
+      "opKey": "sub"
+    },
+    {
+      "order": 7,
+      "name": "Multiplier",
+      "scPrefab": "0x0407f3d568e89e48",
+      "structIdx": 0,
+      "opKey": "mul"
+    },
+    {
+      "order": 8,
+      "name": "Divider",
+      "scPrefab": "0x00766e1e0f9c8699",
+      "structIdx": 0,
+      "opKey": "div"
+    },
+    {
+      "order": 9,
+      "name": "Minimum",
+      "scPrefab": "0x5bd117aa5c9fdf0a",
+      "structIdx": 0,
+      "opKey": "min"
+    },
+    {
+      "order": 10,
+      "name": "Maximum",
+      "scPrefab": "0x6d2fdb1b68703078",
+      "structIdx": 0,
+      "opKey": "max"
+    },
+    {
+      "order": 11,
+      "name": "Logic Gate XOR",
+      "scPrefab": "0xeb8fe77ce46f3590",
+      "structIdx": 0,
+      "opKey": "xor"
+    },
+    {
+      "order": 12,
+      "name": "Simple Threshold",
+      "scPrefab": "0x72a389e0f97da2d6",
+      "structIdx": 15,
+      "opKey": "threshold",
+      "validation": { "_value": 4.321 }
+    },
+    {
+      "order": 13,
+      "name": "Joystick Splitter",
+      "scPrefab": "0x518fdaab8c071134",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 14,
+      "name": "Remapper",
+      "scPrefab": "0xf45687f85cf62f59",
+      "structIdx": 20,
+      "opKey": "remap",
+      "validation": { "inMin": 12, "inMax": 13, "outMin": 21, "outMax": 22 }
+    },
+    {
+      "order": 15,
+      "name": "Data Router 2",
+      "scPrefab": "0x592905a5e74d8aaa",
+      "structIdx": 0,
+      "opKey": "router2"
+    },
+    {
+      "order": 16,
+      "name": "Data Router 4",
+      "scPrefab": "0x0124dacc6531029a",
+      "structIdx": 0,
+      "opKey": "router4",
+      "note": "Was 0x1fa8fb58e3c13ead in v0.1.5 (wrong)"
+    },
+    {
+      "order": 17,
+      "name": "Data Redirector 3 / Signal Router 3",
+      "scPrefab": "0x4224391ea20c8575",
+      "structIdx": 0,
+      "opKey": "signalRouter3"
+    },
+    {
+      "order": 18,
+      "name": "Differentiator",
+      "scPrefab": "0xa198e2ba8fe8844f",
+      "structIdx": 31,
+      "opKey": "deriv"
+    },
+    {
+      "order": 19,
+      "name": "Memory",
+      "scPrefab": "0x876ad2fe23bf2867",
+      "structIdx": 32,
+      "opKey": "memory"
+    },
+    {
+      "order": 20,
+      "name": "Accumulator",
+      "scPrefab": "0x5e3e015590584dcc",
+      "structIdx": 33,
+      "opKey": "integ"
+    },
+    {
+      "order": 21,
+      "name": "Wireless Transmitter",
+      "scPrefab": "0xfb42bddabfe173ed",
+      "structIdx": 10,
+      "opKey": "input",
+      "validation": { "channel": 27 }
+    },
+    {
+      "order": 22,
+      "name": "Inclinometer",
+      "scPrefab": "0xae0669dbe99d036f",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 23,
+      "name": "Rotometer",
+      "scPrefab": "0x955ad7bed99d6821",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 24,
+      "name": "Altimeter",
+      "scPrefab": "0x815199777b4f9cdb",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 25,
+      "name": "Trajectory Curvature Meter",
+      "scPrefab": "0xd32d617963da17c3",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 26,
+      "name": "Velocity Meter",
+      "scPrefab": "0x550e55971db328fe",
+      "structIdx": 30,
+      "opKey": null
+    },
+    {
+      "order": 27,
+      "name": "Accelerometer",
+      "scPrefab": "0x9a4e18286af91651",
+      "structIdx": 0,
+      "opKey": null
+    },
+    {
+      "order": 28,
+      "name": "Distance Meter",
+      "scPrefab": "0xdf2cba30ff100988",
+      "structIdx": 0,
+      "opKey": null
+    }
+  ],
+  "cable": {
+    "scPrefab": "0xe60658e2e04f33ce",
+    "structIdx": 2
+  },
+  "stillUnknown": [
+    "mod", "pow", "atan2", "abs", "sqrt", "exp", "log",
+    "sin", "cos", "tan", "asin", "acos", "atan",
+    "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
+    "condition"
+  ]
+}

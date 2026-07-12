@@ -20,7 +20,7 @@ import { buildBpMeta } from "../serializer/bpmeta";
 
 import { unpackGt } from "../serializer/gtCodec";
 
-import { ROT_UPRIGHT } from "../serializer/rotations";
+import { ROT_LOGIC } from "../serializer/rotations";
 
 import { PREFAB_TABLE } from "../serializer/prefabTable";
 
@@ -48,7 +48,7 @@ describe("serializer", () => {
 
     const laid = layoutGraph(compileFormula(PD));
 
-    const { bytes } = buildBp(laid, { emitCables: true, rot: ROT_UPRIGHT });
+    const { bytes } = buildBp(laid, { emitCables: true, rot: ROT_LOGIC });
 
     const header = getReferenceHeader();
 
@@ -92,7 +92,7 @@ describe("serializer", () => {
 
     const laid = layoutGraph(compileFormula(PD));
 
-    const { bytes } = buildBp(laid, { emitCables: false, rot: ROT_UPRIGHT });
+    const { bytes } = buildBp(laid, { emitCables: false, rot: ROT_LOGIC });
 
     const header = getReferenceHeader();
 
@@ -148,7 +148,7 @@ describe("serializer", () => {
 
         z: c.z,
 
-        rot: ROT_UPRIGHT,
+        rot: ROT_LOGIC,
 
       });
 
@@ -162,7 +162,7 @@ describe("serializer", () => {
 
     const laid = layoutGraph(compileFormula("k = 0.5"));
 
-    const { bytes } = buildBp(laid, { emitCables: false, rot: ROT_UPRIGHT });
+    const { bytes } = buildBp(laid, { emitCables: false, rot: ROT_LOGIC });
 
     const header = getReferenceHeader();
 
@@ -198,6 +198,38 @@ describe("serializer", () => {
 
     });
 
+  });
+
+
+
+  it("uses Block List ground-truth prefab hashes", () => {
+    expect(PREFAB_TABLE.add.hash).toBe(0x3b7bbce726d0cc7fn);
+    expect(PREFAB_TABLE.sub.hash).toBe(0x1c97aba9f33d90c8n);
+    expect(PREFAB_TABLE.mul.hash).toBe(0x0407f3d568e89e48n);
+    expect(PREFAB_TABLE.div.hash).toBe(0x00766e1e0f9c8699n);
+    expect(PREFAB_TABLE.router2.hash).toBe(0x592905a5e74d8aaan);
+    expect(PREFAB_TABLE.router4.hash).toBe(0x0124dacc6531029an);
+    expect(PREFAB_TABLE.min.hash).toBe(0x5bd117aa5c9fdf0an);
+    expect(PREFAB_TABLE.max.hash).toBe(0x6d2fdb1b68703078n);
+    expect(PREFAB_TABLE.not.hash).toBe(0x72696a5f8c4b74den);
+    expect(PREFAB_TABLE.xor.hash).toBe(0xeb8fe77ce46f3590n);
+    expect(PREFAB_TABLE.threshold.hash).toBe(0x72a389e0f97da2d6n);
+    expect(PREFAB_TABLE.threshold.structIndex).toBe(15);
+    expect(PREFAB_TABLE.remap.hash).toBe(0xf45687f85cf62f59n);
+    expect(PREFAB_TABLE.remap.structIndex).toBe(20);
+    expect(PREFAB_TABLE.memory.hash).toBe(0x876ad2fe23bf2867n);
+    expect(PREFAB_TABLE.signalRouter3.hash).toBe(0x4224391ea20c8575n);
+    expect(PREFAB_TABLE.input.hash).toBe(PREFAB_TABLE.output.hash);
+    expect(PREFAB_TABLE.input.structIndex).toBe(10);
+    expect(PREFAB_TABLE.add.known).toBe(true);
+    expect(PREFAB_TABLE.sub.known).toBe(true);
+    expect(PREFAB_TABLE.mul.known).toBe(true);
+    expect(PREFAB_TABLE.div.known).toBe(true);
+    expect(PREFAB_TABLE.router2.known).toBe(true);
+    expect(PREFAB_TABLE.router4.known).toBe(true);
+    expect(PREFAB_TABLE.not.known).toBe(true);
+    expect(PREFAB_TABLE.threshold.known).toBe(true);
+    expect(PREFAB_TABLE.input.known).toBe(true);
   });
 
 });

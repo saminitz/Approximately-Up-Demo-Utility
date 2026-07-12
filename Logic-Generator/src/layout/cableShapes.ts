@@ -4,8 +4,8 @@ import type { Cell } from "./layout";
 export type PlaneDir = "+X" | "-X" | "+Z" | "-Z";
 
 export interface CableCell extends Cell {
-  shape: number;
-  type: number;
+  /** Cable mesh orientation — encoded in `_gt` bits 27..31 (not a separate `_shape` byte). */
+  rot: number;
   trailing: number;
 }
 
@@ -22,26 +22,100 @@ export function dirBetween(a: Cell, b: Cell): PlaneDir | null {
   return null;
 }
 
+export interface CableMeta {
+  rot: number;
+  trailing: number;
+  type: number;
+}
+
 /**
- * Map connectivity on the circuit plane to `_shape` / trailing int32.
+ * Empirical cable orientation table from `989e5da9… PD Target Distance.bp`
+ * (146 primary cable cells, `_gt` @ data+0x14, connectivity from decoded X-Z grid).
  *
- * Empirical PD blueprint (correct offsets at data+0x18):
- *   straight X or Z run (2 neighbors, same axis) -> shape 0, trailing 0
- *   corner / endpoint (turn or single neighbor)   -> shape 1, trailing 1
- *   tee / cross (3–4 neighbors)                   -> shape 0, trailing 0
+ * Cables use the same `_gt` pack as blocks but orientation lives in the 5-bit `rot`
+ * field — there is no room for `_shape` once the 20-byte entity id is accounted for
+ * (sizeof=24 = entity 20 + `_gt` 4 only).
+ *
+ * | topology        | dirs (sorted)   | rot (dominant) | trailing |
+ * |-----------------|-----------------|----------------|----------|
+ * | straight +X     | +X\|-X          | 0              | 0        |
+ * | straight +Z     | +Z\|-Z          | 16             | 0        |
+ * | corner          | +X\|-Z          | 5              | 0        |
+ * | corner          | -X\|-Z          | 4              | 1        |
+ * | corner          | +Z\|-X          | 5              | 1        |
+ * | corner          | +X\|+Z          | 6              | 1        |
+ * | tee             | +X\|+Z\|-X      | 0              | 0        |
+ * | tee             | +X\|-X\|-Z      | 0              | 0        |
+ * | tee             | +X\|+Z\|-Z      | 16             | 0        |
+ * | cross           | +X\|+Z\|-X\|-Z  | 21             | 0        |
+ * | endpoint cap    | +X              | 15             | 1        |
+ * | endpoint cap    | +Z              | 17             | 1        |
+ * | endpoint cap    | -X              | 14             | 1        |
+ * | endpoint cap    | -Z              | 21             | 1        |
+ * | block port stub | (none)          | 12             | 0        |
  */
+const STRAIGHT_X: CableMeta = { rot: 0, trailing: 0, type: DEFAULT_CABLE_TYPE };
+const STRAIGHT_Z: CableMeta = { rot: 16, trailing: 0, type: DEFAULT_CABLE_TYPE };
+const BLOCK_STUB: CableMeta = { rot: 12, trailing: 0, type: DEFAULT_CABLE_TYPE };
+
+const CORNER: Record<string, CableMeta> = {
+  "+X|-Z": { rot: 5, trailing: 0, type: DEFAULT_CABLE_TYPE },
+  "-X|-Z": { rot: 4, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+Z|-X": { rot: 5, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+X|+Z": { rot: 6, trailing: 1, type: DEFAULT_CABLE_TYPE },
+};
+
+const TEE: Record<string, CableMeta> = {
+  "+X|+Z|-X": { rot: 0, trailing: 0, type: DEFAULT_CABLE_TYPE },
+  "+X|-X|-Z": { rot: 0, trailing: 0, type: DEFAULT_CABLE_TYPE },
+  "+X|+Z|-Z": { rot: 16, trailing: 0, type: DEFAULT_CABLE_TYPE },
+  "+X|+Z|-X|-Z": { rot: 21, trailing: 0, type: DEFAULT_CABLE_TYPE },
+  "+Z|-X|-Z": { rot: 21, trailing: 0, type: DEFAULT_CABLE_TYPE },
+};
+
+const ENDPOINT: Record<PlaneDir, CableMeta> = {
+  "+X": { rot: 15, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+Z": { rot: 17, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "-X": { rot: 14, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "-Z": { rot: 21, trailing: 1, type: DEFAULT_CABLE_TYPE },
+};
+
+function dirKey(dirs: Iterable<PlaneDir>): string {
+  return [...new Set(dirs)].sort().join("|");
+}
+
+function axisOf(d: PlaneDir): "X" | "Z" {
+  return d.includes("X") ? "X" : "Z";
+}
+
+/**
+ * Map grid connectivity to per-cell cable `_gt.rot` and record trailing int32.
+ * Uses the sorted neighbor-direction set; corner/tee keys match the PD reference.
+ */
+export function cableMetaFromDirs(dirs: Iterable<PlaneDir>): CableMeta {
+  const unique = [...new Set(dirs)];
+  const n = unique.length;
+  if (n === 0) return BLOCK_STUB;
+  if (n === 1) return ENDPOINT[unique[0]];
+
+  const key = dirKey(unique);
+  if (n === 2) {
+    const axes = new Set(unique.map(axisOf));
+    if (axes.size === 1) return axes.has("X") ? STRAIGHT_X : STRAIGHT_Z;
+    return CORNER[key] ?? { rot: 5, trailing: 1, type: DEFAULT_CABLE_TYPE };
+  }
+
+  return TEE[key] ?? { rot: 0, trailing: 0, type: DEFAULT_CABLE_TYPE };
+}
+
+/** @deprecated alias kept for tests migrating from the old `_shape` byte guess. */
 export function cableShapeFromDirs(dirs: Iterable<PlaneDir>): {
   shape: number;
   trailing: number;
   type: number;
 } {
-  const unique = new Set(dirs);
-  const n = unique.size;
-  if (n <= 1) return { shape: 1, trailing: 1, type: DEFAULT_CABLE_TYPE };
-  if (n >= 3) return { shape: 0, trailing: 0, type: DEFAULT_CABLE_TYPE };
-  const axes = new Set([...unique].map((d) => (d.includes("X") ? "X" : "Z")));
-  if (axes.size === 1) return { shape: 0, trailing: 0, type: DEFAULT_CABLE_TYPE };
-  return { shape: 1, trailing: 1, type: DEFAULT_CABLE_TYPE };
+  const m = cableMetaFromDirs(dirs);
+  return { shape: m.rot, trailing: m.trailing, type: m.type };
 }
 
 function cellKey(c: Cell): string {
@@ -78,8 +152,8 @@ export function buildCableCells(
   for (const [key, dirs] of dirSets) {
     if (blocked.has(key)) continue;
     const [x, y, z] = key.split(",").map(Number);
-    const meta = cableShapeFromDirs(dirs);
-    out.push({ x, y, z, ...meta });
+    const meta = cableMetaFromDirs(dirs);
+    out.push({ x, y, z, rot: meta.rot, trailing: meta.trailing });
   }
   return out;
 }
