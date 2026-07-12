@@ -22,7 +22,7 @@ import { ROT_LOGIC } from "../src/serializer/rotations";
 
 
 
-const VERSION = "0.1.6";
+const VERSION = "0.1.7";
 
 const FORMULA = "u = Kp*(t - p) + Kd*deriv(t - p)";
 

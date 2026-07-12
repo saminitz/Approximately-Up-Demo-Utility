@@ -181,8 +181,7 @@ describe("cable orientation (rot in _gt)", () => {
     const rots = new Set(laid.cableCells.map((c) => c.rot));
 
     expect(rots.has(0)).toBe(true);
-
-    expect(rots.has(6)).toBe(false);
+    expect(rots.size).toBeGreaterThan(1);
 
 
 

@@ -1,4 +1,5 @@
 import type { BlockGraph, BlockNode } from "../compiler/graph";
+import { inputPortCell, outputPortCell } from "../catalog/ports";
 import { buildCableCells, type CableCell } from "./cableShapes";
 
 export interface Cell {
@@ -139,13 +140,9 @@ export function layoutGraph(
   const routes: CableRoute[] = graph.edges.map((e) => {
     const from = byId.get(e.from.blockId)!;
     const to = byId.get(e.to.blockId)!;
-    const fc = from.cell!;
-    const tc = to.cell!;
-    const startX = fc.x + 1;
-    const startZ = fc.z;
-    const endX = tc.x - 1;
-    const endZ = tc.z;
-    const midX = Math.max(startX, Math.floor((fc.x + tc.x) / 2));
+    const start = outputPortCell(from.op, from.cell!, e.from.port);
+    const end = inputPortCell(to.op, to.cell!, e.to.port);
+    const midX = Math.max(start.x, Math.floor((start.x + end.x) / 2));
 
     const cells: Cell[] = [];
     const push = (x: number, z: number) => {
@@ -153,13 +150,13 @@ export function layoutGraph(
       if (last && last.x === x && last.z === z) return;
       cells.push({ x, y: opts.originY, z });
     };
-    push(fc.x, fc.z);
-    for (let x = startX; x <= midX; x++) push(x, startZ);
-    const zStep = endZ >= startZ ? 1 : -1;
-    for (let z = startZ; z !== endZ; z += zStep) push(midX, z);
-    push(midX, endZ);
-    for (let x = midX; x <= endX; x++) push(x, endZ);
-    push(tc.x, tc.z);
+    push(start.x, start.z);
+    for (let x = start.x + 1; x <= midX; x++) push(x, start.z);
+    const zStep = end.z >= start.z ? 1 : -1;
+    for (let z = start.z; z !== end.z; z += zStep) push(midX, z);
+    push(midX, end.z);
+    for (let x = midX; x <= end.x; x++) push(x, end.z);
+    push(end.x, end.z);
 
     return {
       edgeId: e.id,

@@ -6,7 +6,7 @@ game-importable blueprint bundle (`.bp` + `.bpmeta` [+ `.bpex`]) as a downloadab
 ZIP.
 
 - **Stack:** React + Vite + TypeScript, npm.
-- **Version:** `0.1.6` (bump on every change — see `package.json`).
+- **Version:** `0.1.7` (bump on every change — see `package.json`).
 
 ```
 Formula ──► lexer ──► parser (AST) ──► compiler (block graph, CSE) ──►
@@ -60,14 +60,15 @@ clear error message.
 ```
 Logic-Generator/
 ├─ index.html
-├─ package.json            # version 0.1.6
+├─ package.json            # version 0.1.7
 ├─ vite.config.ts          # vite + vitest config
 ├─ tsconfig*.json
 ├─ scripts/
 │  ├─ extractHeader.mjs     # dev codegen: reads a reference .bp header (READ-ONLY) -> bundled asset
 │  └─ makeSample.ts         # regenerate samples/PD_Sample_Logic-Generator_*.zip
 ├─ data/
-│  └─ prefab-map.json       # authoritative Block List hash table (human reference)
+│  ├─ prefab-map.json       # authoritative Block List hash table (human reference)
+│  └─ port-map.json         # Block List port topology from cable markers
 └─ src/
    ├─ main.tsx / App.tsx / App.css / index.css
    ├─ formula/             # language front-end
@@ -75,8 +76,10 @@ Logic-Generator/
    │  └─ catalog.ts         # THE operator catalog (single source of truth)
    ├─ compiler/            # AST -> block graph
    │  ├─ graph.ts  compiler.ts   # CSE + auto input/output terminals
+   ├─ catalog/
+   │  └─ ports.ts            # per-op port counts + face offsets (from port-map.json)
    ├─ layout/
-   │  └─ layout.ts          # layered grid layout + Manhattan cable routing
+   │  └─ layout.ts          # layered grid layout + Manhattan cable routing (port-aware)
    ├─ serializer/          # blueprint writers (pluggable)
    │  ├─ rotations.ts       # 24 GarageTransform quaternions
    │  ├─ gtCodec.ts         # proven `uint _gt` pack/unpack
@@ -147,6 +150,17 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
    AssetRipper prefab inspection — still empirical, not a closed-form formula.
 
 ## Changelog
+
+### 0.1.7
+- **Port map:** parsed cable markers from the updated Block List blueprint
+  (`1845836d…`, 103 cable cells). Convention: **chain length 1 = INPUT**,
+  **length 2 = OUTPUT**; binary blocks use two +X len-1 cells as dual inputs,
+  stateful blocks use −X len-2 as input. Exported to `data/port-map.json`.
+- **Parser:** `scratch/parseBlockListPorts.js` decodes `_gt`, clusters cable
+  components, classifies port chains (see verification rule in port-map.json).
+- **Layout:** cable routes now start/end at parsed port offsets (`catalog/ports.ts`).
+- Tests: `ports.test.ts` (Adder/Memory/Router4 topology + cell resolution).
+- Sample: regenerate with `npx vite-node scripts/makeSample.ts` → `0.1.7` ZIP.
 
 ### 0.1.6
 - **Prefab map:** parsed user Block List blueprint (`1845836d…`, bpmeta v0.1.139) —
