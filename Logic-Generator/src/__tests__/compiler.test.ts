@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+import { compileFormula } from "../compiler/compiler";
+import type { OpKey } from "../formula/catalog";
+
+const count = (ops: OpKey[], op: OpKey) => ops.filter((o) => o === op).length;
+
+describe("compiler", () => {
+  it("derives inputs and outputs from named variables", () => {
+    const g = compileFormula("error = target - position\ncontrol = Kp*error + Kd*deriv(error)");
+    expect(g.inputs).toEqual(["Kd", "Kp", "position", "target"]);
+    expect(g.outputs).toEqual(["control"]);
+  });
+
+  it("creates input and output terminal blocks", () => {
+    const g = compileFormula("y = a + b");
+    const inputs = g.nodes.filter((n) => n.op === "input").map((n) => n.signalName);
+    const outputs = g.nodes.filter((n) => n.op === "output").map((n) => n.signalName);
+    expect(inputs.sort()).toEqual(["a", "b"]);
+    expect(outputs).toEqual(["y"]);
+  });
+
+  it("shares common subexpressions (CSE)", () => {
+    // (a + b) used twice -> a single adder plus one multiplier.
+    const g = compileFormula("y = (a + b) * (a + b)");
+    const ops = g.nodes.map((n) => n.op);
+    expect(count(ops, "add")).toBe(1);
+    expect(count(ops, "mul")).toBe(1);
+  });
+
+  it("reuses a named intermediate signal instead of duplicating it", () => {
+    const g = compileFormula("e = t - p\nu = Kp*e + Kd*e");
+    const ops = g.nodes.map((n) => n.op);
+    expect(count(ops, "sub")).toBe(1); // single 'e' subtractor, fanned out
+  });
+
+  it("lowers a numeric literal to a constant block", () => {
+    const g = compileFormula("y = x * 2");
+    const consts = g.nodes.filter((n) => n.op === "constant");
+    expect(consts).toHaveLength(1);
+    expect(consts[0].value).toBe(2);
+  });
+
+  it("lowers unary minus to a subtractor from zero", () => {
+    const g = compileFormula("y = -x");
+    const ops = g.nodes.map((n) => n.op);
+    expect(count(ops, "sub")).toBe(1);
+    expect(count(ops, "constant")).toBe(1); // the zero
+  });
+
+  it("rejects duplicate assignment of the same signal", () => {
+    expect(() => compileFormula("y = a\ny = b")).toThrow(/assigned more than once/);
+  });
+
+  it("detects cyclic definitions", () => {
+    expect(() => compileFormula("a = b + 1\nb = a + 1")).toThrow(/[Cc]yclic/);
+  });
+
+  it("produces a valid edge set (all endpoints exist)", () => {
+    const g = compileFormula("u = Kp*(t - p) + Kd*deriv(t - p)");
+    const ids = new Set(g.nodes.map((n) => n.id));
+    for (const e of g.edges) {
+      expect(ids.has(e.from.blockId)).toBe(true);
+      expect(ids.has(e.to.blockId)).toBe(true);
+    }
+  });
+});
