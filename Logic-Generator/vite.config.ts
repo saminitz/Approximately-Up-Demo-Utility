@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative asset URLs so dist/ works from any subdirectory, not just server root.
+  base: "./",
   plugins: [react()],
   test: {
     globals: true,
