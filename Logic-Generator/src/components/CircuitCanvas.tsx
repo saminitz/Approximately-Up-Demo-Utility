@@ -2,11 +2,12 @@ import { useMemo } from "react";
 import type { BlockNode } from "../compiler/graph";
 import { OPS, type OpCategory } from "../formula/catalog";
 import type { LaidOutGraph } from "../layout/layout";
+import { routeCables, type RouteRequest, type UiRect } from "../layout/uiRoute";
 
 const CELL = 24; // pixels per grid cell
 const BLOCK_W = 104;
 const PORT_R = 4;
-const MARGIN = 2; // cells
+const PAD = 48; // px breathing room around the whole circuit (covers block half-width + label/cable overhang)
 
 const CATEGORY_COLOR: Record<OpCategory, string> = {
   arithmetic: "#3b82f6",
@@ -52,10 +53,31 @@ export function CircuitCanvas({ laid, zoom }: CircuitCanvasProps) {
     if (!Number.isFinite(minX)) minX = 0;
     if (!Number.isFinite(minZ)) minZ = 0;
 
-    const toPx = (x: number, z: number): Anchor => ({
-      x: (x - minX + MARGIN) * CELL,
-      y: (z - minZ + MARGIN) * CELL,
+    // Raw pixel centers, then measure the real drawn bounding box (block rects,
+    // which already contain the edge-anchored ports) so we can pad + shift by
+    // the actual extent instead of a cell count that ignores block size.
+    const raw = (x: number, z: number): Anchor => ({
+      x: (x - minX) * CELL,
+      y: (z - minZ) * CELL,
     });
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    for (const n of laid.nodes) {
+      const c = n.cell ?? { x: 0, y: 0, z: 0 };
+      const a = raw(c.x, c.z);
+      const h = blockHeight(n);
+      bx0 = Math.min(bx0, a.x - BLOCK_W / 2);
+      bx1 = Math.max(bx1, a.x + BLOCK_W / 2);
+      by0 = Math.min(by0, a.y - h / 2);
+      by1 = Math.max(by1, a.y + h / 2);
+    }
+    if (!Number.isFinite(bx0)) { bx0 = 0; bx1 = 0; by0 = 0; by1 = 0; }
+    const offX = PAD - bx0;
+    const offY = PAD - by0;
+
+    const toPx = (x: number, z: number): Anchor => {
+      const a = raw(x, z);
+      return { x: a.x + offX, y: a.y + offY };
+    };
 
     const centers = new Map<string, Anchor>();
     for (const n of laid.nodes) {
@@ -75,26 +97,44 @@ export function CircuitCanvas({ laid, zoom }: CircuitCanvasProps) {
       return { x: ctr.x + BLOCK_W / 2, y };
     };
 
-    const spanX = laid.bounds.maxX - minX;
-    const spanZ = laid.bounds.maxZ - minZ;
-    const width = (spanX + MARGIN * 2) * CELL + BLOCK_W;
-    const height = (spanZ + MARGIN * 2) * CELL + 80;
+    const width = (bx1 - bx0) + PAD * 2;
+    const height = (by1 - by0) + PAD * 2;
     return { centers, inPort, outPort, byId, width, height, minX, minZ, toPx };
   }, [laid]);
 
   const cablePaths = useMemo(() => {
-    const { toPx } = geom;
-    return laid.routes.map((r) => {
-      const pts = r.cells.map((c) => {
-        const p = toPx(c.x, c.z);
-        return `${p.x},${p.y}`;
-      });
-      return { id: r.edgeId, d: `M ${pts.join(" L ")}` };
+    const { centers, byId, inPort, outPort } = geom;
+
+    // Block rectangles in pixel space (same geometry the blocks are drawn with).
+    const rects: UiRect[] = laid.nodes.map((n) => {
+      const ctr = centers.get(n.id)!;
+      const h = blockHeight(byId.get(n.id)!);
+      return { x: ctr.x - BLOCK_W / 2, y: ctr.y - h / 2, w: BLOCK_W, h };
     });
+
+    // One routing request per edge, anchored on the *drawn* port positions.
+    // Route left-to-right, top-to-bottom so lane assignment is stable.
+    const requests: RouteRequest[] = laid.edges
+      .map((e) => {
+        const from = byId.get(e.from.blockId)!;
+        const to = byId.get(e.to.blockId)!;
+        return {
+          id: e.id,
+          from: outPort(from.id, e.from.port, from.outputs.length),
+          to: inPort(to.id, e.to.port, to.inputs.length),
+        };
+      })
+      .sort((a, b) => a.from.x - b.from.x || a.from.y - b.from.y);
+
+    const routed = routeCables(rects, requests);
+    return routed.map((r) => ({
+      id: r.id,
+      d: `M ${r.points.map((p) => `${p.x},${p.y}`).join(" L ")}`,
+    }));
   }, [laid, geom]);
 
-  const w = Math.max(geom.width, 400);
-  const h = Math.max(geom.height, 300);
+  const w = geom.width;
+  const h = geom.height;
 
   return (
     <svg

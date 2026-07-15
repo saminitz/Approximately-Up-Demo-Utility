@@ -4,7 +4,9 @@ import {
   PORT_BY_OP,
   PORT_MAP_STATS,
   inputPortCell,
+  inputPortRot,
   outputPortCell,
+  outputPortRot,
   topologyForOp,
 } from "../catalog/ports";
 import { layoutGraph } from "../layout/layout";
@@ -17,10 +19,10 @@ describe("port map (Block List cable markers)", () => {
 
   it("maps binary ops: output on -X, inputs on +X", () => {
     const add = topologyForOp("add");
-    expect(add.outputs).toEqual([{ face: "-X", dx: -1, dz: 0, chainLen: 2 }]);
+    expect(add.outputs).toEqual([{ face: "-X", dx: -1, dz: 0, chainLen: 2, cableRot: 5 }]);
     expect(add.inputs).toEqual([
-      { face: "+X", dx: 2, dz: 1, chainLen: 1 },
-      { face: "+X", dx: 3, dz: 1, chainLen: 1 },
+      { face: "+X", dx: 2, dz: 1, chainLen: 1, cableRot: 0 },
+      { face: "+X", dx: 3, dz: 1, chainLen: 1, cableRot: 0 },
     ]);
   });
 
@@ -60,6 +62,24 @@ describe("port map (Block List cable markers)", () => {
     for (const route of laid.routes) {
       expect(route.cells[0]).not.toEqual(anchor);
     }
+  });
+
+  it("forces first-cable rot: 5 on west face, 0 on east face", () => {
+    // Block List ground truth: -X ports rot 5, +X ports rot 0.
+    expect(outputPortRot("add", 0)).toBe(5); // adder output on -X
+    expect(inputPortRot("add", 0)).toBe(0); // adder inputs on +X
+    expect(inputPortRot("not", 0)).toBe(5); // unary input on -X
+    expect(outputPortRot("not", 0)).toBe(0); // unary output on +X
+  });
+
+  it("stamps port rot onto the first cable cell of each route", () => {
+    const laid = layoutGraph(compileFormula("c = a + b"));
+    const adder = laid.nodes.find((n) => n.op === "add")!;
+    const inCell = inputPortCell("add", adder.cell!, 0);
+    const cable = laid.cableCells.find(
+      (c) => c.x === inCell.x && c.z === inCell.z,
+    );
+    expect(cable?.rot).toBe(0); // +X input stub
   });
 
   it("exposes router4 with four +X outputs", () => {

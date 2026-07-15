@@ -13,6 +13,8 @@ export interface PortOffset {
   dz: number;
   /** Cable chain length in the reference blueprint (1 = input stub, 2 = output chain). */
   chainLen?: number;
+  /** Ground-truth `_gt.rot` of the first cable cell at this port (Block List). */
+  cableRot?: number;
 }
 
 export interface PortTopology {
@@ -27,6 +29,7 @@ interface PortMapEntry {
   dz: number;
   face: PortFace;
   chainLen?: number;
+  cableRot?: number;
   portIndex?: number;
 }
 
@@ -49,7 +52,7 @@ function topologyFromPorts(ports: PortMapEntry[]): PortTopology {
     ports
       .filter((p) => p.kind === kind)
       .sort((a, b) => (a.portIndex ?? 0) - (b.portIndex ?? 0))
-      .map((p) => ({ face: p.face, dx: p.dx, dz: p.dz, chainLen: p.chainLen }));
+      .map((p) => ({ face: p.face, dx: p.dx, dz: p.dz, chainLen: p.chainLen, cableRot: p.cableRot }));
   return { inputs: pick("input"), outputs: pick("output") };
 }
 
@@ -156,14 +159,31 @@ export function portCell(
   return { x: anchor.x + offset.dx, y: anchor.y, z: anchor.z + offset.dz };
 }
 
+/**
+ * `_gt.rot` of the first cable cell touching a port. Block List convention: cells
+ * on the block's west (-X) face use rot 5, east (+X) face use rot 0 (independent
+ * of input/output). Uses the parsed ground truth when present, else the dx rule.
+ */
+export function portRot(off: PortOffset): number {
+  return off.cableRot ?? (off.dx < 0 ? 5 : 0);
+}
+
+function inputOffset(op: OpKey, portIndex: number): PortOffset {
+  const topo = topologyForOp(op);
+  return topo.inputs[portIndex] ?? topo.inputs[topo.inputs.length - 1] ?? { face: "-X", dx: -1, dz: 0 };
+}
+
+function outputOffset(op: OpKey, portIndex: number): PortOffset {
+  const topo = topologyForOp(op);
+  return topo.outputs[portIndex] ?? topo.outputs[0] ?? { face: "+X", dx: 2, dz: 1 };
+}
+
 export function inputPortCell(
   op: OpKey,
   anchor: { x: number; y: number; z: number },
   portIndex: number,
 ): { x: number; y: number; z: number } {
-  const topo = topologyForOp(op);
-  const off = topo.inputs[portIndex] ?? topo.inputs[topo.inputs.length - 1] ?? { face: "-X", dx: -1, dz: 0 };
-  return portCell(anchor, off);
+  return portCell(anchor, inputOffset(op, portIndex));
 }
 
 export function outputPortCell(
@@ -171,7 +191,13 @@ export function outputPortCell(
   anchor: { x: number; y: number; z: number },
   portIndex: number,
 ): { x: number; y: number; z: number } {
-  const topo = topologyForOp(op);
-  const off = topo.outputs[portIndex] ?? topo.outputs[0] ?? { face: "+X", dx: 2, dz: 1 };
-  return portCell(anchor, off);
+  return portCell(anchor, outputOffset(op, portIndex));
+}
+
+export function inputPortRot(op: OpKey, portIndex: number): number {
+  return portRot(inputOffset(op, portIndex));
+}
+
+export function outputPortRot(op: OpKey, portIndex: number): number {
+  return portRot(outputOffset(op, portIndex));
 }

@@ -129,6 +129,8 @@ function cellKey(c: Cell): string {
 export function buildCableCells(
   routes: { cells: Cell[] }[],
   blocked: Set<string>,
+  /** cellKey -> forced `_gt.rot` for the first cable cell at a block port. */
+  forcedRot: Map<string, number> = new Map(),
 ): CableCell[] {
   const dirSets = new Map<string, Set<PlaneDir>>();
 
@@ -153,7 +155,8 @@ export function buildCableCells(
     if (blocked.has(key)) continue;
     const [x, y, z] = key.split(",").map(Number);
     const meta = cableMetaFromDirs(dirs);
-    out.push({ x, y, z, rot: meta.rot, trailing: meta.trailing });
+    const forced = forcedRot.get(key);
+    out.push({ x, y, z, rot: forced ?? meta.rot, trailing: meta.trailing });
   }
   return out;
 }

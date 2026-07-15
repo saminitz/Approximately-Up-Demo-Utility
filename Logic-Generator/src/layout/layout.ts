@@ -1,5 +1,5 @@
 import type { BlockGraph, BlockNode } from "../compiler/graph";
-import { inputPortCell, outputPortCell } from "../catalog/ports";
+import { inputPortCell, inputPortRot, outputPortCell, outputPortRot } from "../catalog/ports";
 import { buildCableCells, type CableCell } from "./cableShapes";
 
 export interface Cell {
@@ -137,11 +137,17 @@ export function layoutGraph(
   });
 
   // --- Route cables on the X-Z plane -----------------------------------------
+  // Ground-truth `_gt.rot` for the first cable cell at each block port (Block List).
+  const forcedRot = new Map<string, number>();
+  const cellKey = (c: Cell) => `${c.x},${c.y},${c.z}`;
+
   const routes: CableRoute[] = graph.edges.map((e) => {
     const from = byId.get(e.from.blockId)!;
     const to = byId.get(e.to.blockId)!;
     const start = outputPortCell(from.op, from.cell!, e.from.port);
     const end = inputPortCell(to.op, to.cell!, e.to.port);
+    forcedRot.set(cellKey({ ...start, y: opts.originY }), outputPortRot(from.op, e.from.port));
+    forcedRot.set(cellKey({ ...end, y: opts.originY }), inputPortRot(to.op, e.to.port));
     const midX = Math.max(start.x, Math.floor((start.x + end.x) / 2));
 
     const cells: Cell[] = [];
@@ -172,7 +178,7 @@ export function layoutGraph(
       .filter((c): c is Cell => c !== undefined)
       .map((c) => `${c.x},${c.y},${c.z}`),
   );
-  const cableCells = buildCableCells(routes, blocked);
+  const cableCells = buildCableCells(routes, blocked, forcedRot);
 
   const cols = layers.length;
   const maxX = opts.originX + (cols - 1) * opts.colStep + 1;
