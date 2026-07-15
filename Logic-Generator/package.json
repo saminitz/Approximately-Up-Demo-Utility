@@ -1,7 +1,7 @@
 {
   "name": "logic-generator",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "description": "Compile a formula into an Approximately Up in-game logic blueprint (.bp/.bpmeta ZIP) with a live circuit visualization.",
   "scripts": {
@@ -20,6 +20,7 @@
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",

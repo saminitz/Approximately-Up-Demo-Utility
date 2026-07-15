@@ -8,7 +8,7 @@
 // ponytail: rename `_gt` x/z to their game meaning only if the confusion outlives
 // this file — that is a wide, purely cosmetic diff through layout + router.
 
-import { gameQuat, type Quaternion } from "./serializer/rotations";
+import { gameQuat } from "./serializer/rotations";
 
 export type Vec3Tuple = [number, number, number];
 
@@ -32,7 +32,10 @@ export const DIR_TO_SCENE = {
  *     the scene as M·R·M⁻¹ = the same rotation about the swapped axis with the
  *     angle NEGATED. For q = (x, y, z, w) that is (−z, −y, −x, w).
  */
-export function sceneQuat(rot: number | undefined): Quaternion | undefined {
+// Mutable tuple: react-three-fiber's `quaternion` prop rejects a readonly one.
+export function sceneQuat(
+  rot: number | undefined,
+): [number, number, number, number] | undefined {
   if (rot === undefined) return undefined;
   const q = gameQuat(rot);
   return [-q[2], -q[1], -q[0], q[3]];

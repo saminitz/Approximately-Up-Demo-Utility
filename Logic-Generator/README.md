@@ -6,7 +6,7 @@ game-importable blueprint bundle (`.bp` + `.bpmeta`) as a downloadable
 ZIP.
 
 - **Stack:** React + Vite + TypeScript, npm.
-- **Version:** `0.1.7` (bump on every change — see `package.json`).
+- **Version:** `0.1.8` (bump on every change — see `package.json`).
 
 ```
 Formula ──► lexer ──► parser (AST) ──► compiler (block graph, CSE) ──►
@@ -60,7 +60,7 @@ clear error message.
 ```
 Logic-Generator/
 ├─ index.html
-├─ package.json            # version 0.1.7
+├─ package.json            # version 0.1.8
 ├─ vite.config.ts          # vite + vitest config
 ├─ tsconfig*.json
 ├─ scripts/
@@ -150,7 +150,20 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
 
 ## Changelog
 
+### 0.1.8
+
+- **Coordinates:** unified UI/game coordinate system; block rotations in the 3D view
+  now match in-game rotation, and game input/output port colors are mirrored in the UI.
+- **View:** SVG visualization replaced by a 3D circuit view (`Circuit3D`) with block
+  symbols/labels; debug mode gates the calibration-blueprint rendering.
+- **Cables:** rounded corners, 2×2 block-size aware routing, cable bridges, loop fix.
+- **Ops:** `remap` and `threshold` reworked — input expectations and internal logic.
+- **Export:** `.bpex` dropped from the blueprint bundle (unused).
+- **Calibration:** phase 3 calibration blueprints + blueprint reader; data files in `data/`.
+- Tests: cable rotations/directions, corner rotations, cable snake fixture, remap/threshold.
+
 ### 0.1.7
+
 - **Port map:** parsed cable markers from the updated Block List blueprint
   (`1845836d…`, 103 cable cells). Convention: **chain length 1 = INPUT**,
   **length 2 = OUTPUT**; binary blocks use two +X len-1 cells as dual inputs,
@@ -162,6 +175,7 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
 - Sample: regenerate with `npx vite-node scripts/makeSample.ts` → `0.1.7` ZIP.
 
 ### 0.1.6
+
 - **Prefab map:** parsed user Block List blueprint (`1845836d…`, bpmeta v0.1.139) —
   28 logic blocks, left-to-right by Z; exported to `data/prefab-map.json`.
 - **Fix (prefabs):** Divider and Router4 hashes corrected; added not/xor/min/max/threshold/
@@ -171,12 +185,14 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
 - Sample: `samples/PD_Sample_Logic-Generator_0.1.6.zip`.
 
 ### 0.1.5
+
 - **Fix (rotation):** default logic-block rot `6` → `3` (`ROT_LOGIC`, 180° Y from upright).
 - **Fix (prefabs):** corrected Adder/Multiplier/Router2/Router4 hashes from mined blueprints.
 - **Fix (compiler):** insert Data Router 2/4 on fan-out; enforce ≤2 inputs per block.
 - Sample: `samples/PD_Sample_Logic-Generator_0.1.5.zip` (11 blocks incl. 1× Router2).
 
 ### 0.1.1
+
 - **Fix (rotation):** default block rotation changed from the identity index `16`
   to the upright index `0` (`ROT_UPRIGHT`). Real authored blocks store `rot=0`
   (GT_REPORT.md §5, PD Target Distance record 0); the identity quaternion rendered
