@@ -6,6 +6,35 @@ import { OPS, type OpCategory } from "../formula/catalog";
 import { footprintForOp, inputPortCell, outputPortCell } from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
 
+// A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
+// centre toward each neighbour it links to (within its own edge chain, so parallel
+// cables never falsely join). Straight run = two opposite arms (a bar); a turn =
+// two perpendicular half-length arms meeting at the centre (an L, the way the game
+// bends a cable inside one block); a bridge = a horizontal arm + a vertical one.
+type Dir = "+X" | "-X" | "+Y" | "-Y" | "+Z" | "-Z";
+const DIRS: ReadonlyArray<readonly [Dir, number, number, number]> = [
+  ["+X", 1, 0, 0], ["-X", -1, 0, 0],
+  ["+Y", 0, 1, 0], ["-Y", 0, -1, 0],
+  ["+Z", 0, 0, 1], ["-Z", 0, 0, -1],
+];
+
+const ARM = 0.55; // half-cell + slight overlap so adjacent cells' arms touch
+const FLAT = 0.1; // cable thickness (the two faces)
+const WIDE = 0.3; // cable width
+
+// Arm box size + centre offset for each direction (flat = thin on the travel-normal
+// vertical for horizontal arms; vertical arms are thin front-to-back).
+const ARM_GEOM: Record<Dir, { size: [number, number, number]; pos: [number, number, number] }> = {
+  "+X": { size: [ARM, FLAT, WIDE], pos: [0.25, 0, 0] },
+  "-X": { size: [ARM, FLAT, WIDE], pos: [-0.25, 0, 0] },
+  "+Z": { size: [WIDE, FLAT, ARM], pos: [0, 0, 0.25] },
+  "-Z": { size: [WIDE, FLAT, ARM], pos: [0, 0, -0.25] },
+  "+Y": { size: [WIDE, ARM, FLAT], pos: [0, 0.25, 0] },
+  "-Y": { size: [WIDE, ARM, FLAT], pos: [0, -0.25, 0] },
+};
+const CABLE_COLOR = "#4b93f8";
+const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
+
 // Faithful 3D render of the SAME model the exporter writes: block cells from
 // `node.cell` (sized by the real footprint) and cables from `laid.cableCells`
 // (bridge cells sit at y+1, so crossings visibly arch). No cosmetic re-routing.
@@ -77,10 +106,17 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       n.outputs.forEach((_, i) => ports.push({ ...outputPortCell(n.op, n.cell!, i), out: true }));
     }
 
-    const cables = laid.cableCells.map((c) => {
-      acc(c.x, c.y, c.z);
-      return { x: c.x, y: c.y, z: c.z };
-    });
+    // Per cell: the directions it links to within its own edge chain.
+    const cables: Array<Vec3 & { dirs: Dir[] }> = [];
+    for (const chain of laid.cableChains) {
+      const set = new Set(chain.cells.map((c) => cellKey(c.x, c.y, c.z)));
+      for (const c of chain.cells) {
+        acc(c.x, c.y, c.z);
+        const dirs = DIRS.filter(([, dx, dy, dz]) => set.has(cellKey(c.x + dx, c.y + dy, c.z + dz)))
+          .map(([d]) => d);
+        cables.push({ x: c.x, y: c.y, z: c.z, dirs });
+      }
+    }
 
     if (!Number.isFinite(minX)) { minX = maxX = minY = maxY = minZ = maxZ = 0; }
     const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 };
@@ -119,11 +155,21 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         </mesh>
       ))}
 
+      {/* Each cell = a centre node + one flat arm per linked direction (straight,
+          L-bend, tee, or bridge ramp — the cable's real geometry). */}
       {cables.map((c, i) => (
-        <mesh key={i} position={[wx(c.x), wy(c.y), wz(c.z)]}>
-          <boxGeometry args={[0.5, 0.5, 0.5]} />
-          <meshStandardMaterial color="#4b93f8" />
-        </mesh>
+        <group key={i} position={[wx(c.x), wy(c.y), wz(c.z)]}>
+          <mesh>
+            <boxGeometry args={[WIDE, FLAT, WIDE]} />
+            <meshStandardMaterial color={CABLE_COLOR} />
+          </mesh>
+          {c.dirs.map((d) => (
+            <mesh key={d} position={ARM_GEOM[d].pos}>
+              <boxGeometry args={ARM_GEOM[d].size} />
+              <meshStandardMaterial color={CABLE_COLOR} />
+            </mesh>
+          ))}
+        </group>
       ))}
 
       <OrbitControls makeDefault />

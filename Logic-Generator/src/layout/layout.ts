@@ -28,8 +28,11 @@ export interface LaidOutGraph {
   nodes: BlockNode[]; // same nodes, with `.cell` assigned
   edges: BlockGraph["edges"];
   routes: CableRoute[];
-  /** Cable cells with per-cell shape/type/trailing metadata. */
+  /** Cable cells with per-cell shape/type/trailing metadata (globally deduped;
+   * this is what the exporter writes). */
   cableCells: CableCell[];
+  /** Per-edge ordered cable cells for rendering arm connectivity (not deduped). */
+  cableChains: { edgeId: string; cells: CableCell[] }[];
   inputs: string[];
   outputs: string[];
   bounds: { cols: number; rows: number; maxX: number; maxZ: number };
@@ -181,13 +184,18 @@ export function layoutGraph(
         cells.push({ x: n.cell.x + dx, y: n.cell.y, z: n.cell.z + dz });
     return cells;
   });
-  const { cells: cableCells, flatPaths } = route3DCables(routeEdges, blockCells);
+  const { cells: cableCells, flatPaths, chains } = route3DCables(routeEdges, blockCells);
 
   const routes: CableRoute[] = graph.edges.map((e) => ({
     edgeId: e.id,
     fromBlock: e.from.blockId,
     toBlock: e.to.blockId,
     cells: flatPaths.get(e.id) ?? [],
+  }));
+
+  const cableChains = graph.edges.map((e) => ({
+    edgeId: e.id,
+    cells: chains.get(e.id) ?? [],
   }));
 
   const cols = layers.length;
@@ -199,6 +207,7 @@ export function layoutGraph(
     edges: graph.edges,
     routes,
     cableCells,
+    cableChains,
     inputs: graph.inputs,
     outputs: graph.outputs,
     bounds: { cols, rows: maxRows, maxX, maxZ },

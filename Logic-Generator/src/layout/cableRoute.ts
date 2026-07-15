@@ -46,6 +46,10 @@ export interface RouteResult {
   cells: RoutedCableCell[];
   /** Flat (y0) A* path per edge id, for callers that need the 2D route. */
   flatPaths: Map<string, Cell[]>;
+  /** Per-edge ordered 3D cable cells (incl. bridge foot/top/span), NOT globally
+   * deduped — so a renderer can derive each cable's own arm connectivity without
+   * falsely linking to a parallel cable in an adjacent cell. */
+  chains: Map<string, RoutedCableCell[]>;
   /** Edges the router could not path (should be empty for laid-out graphs). */
   failed: string[];
 }
@@ -172,6 +176,7 @@ export function route3DCables(
   const emitted = new Set<string>(); // 3D cell keys already emitted (dedupe shared ports)
   const out: RoutedCableCell[] = [];
   const flatPaths = new Map<string, Cell[]>();
+  const chains = new Map<string, RoutedCableCell[]>();
   const failed: string[] = [];
 
   // Grid bounds from all endpoints + a margin so detours have room.
@@ -253,6 +258,7 @@ export function route3DCables(
         entries.push({ x: c.x, y: y + 1, z: c.z, kind: "top", isEnd });
       } else entries.push({ x: c.x, y, z: c.z, kind: isEnd ? "port" : "flat", isEnd });
     }
+    const chain: RoutedCableCell[] = [];
     const own = new Set(entries.map((en) => cellKey(en)));
     const CHAIN_DIRS: ReadonlyArray<readonly [Dir3, number, number, number]> = [
       ["+X", 1, 0, 0], ["-X", -1, 0, 0], ["+Z", 0, 0, 1], ["-Z", 0, 0, -1],
@@ -299,8 +305,11 @@ export function route3DCables(
         rot = meta.rot;
         trailing = meta.trailing;
       }
-      push({ x: en.x, y: en.y, z: en.z, rot, trailing });
+      const rc: RoutedCableCell = { x: en.x, y: en.y, z: en.z, rot, trailing };
+      push(rc);
+      chain.push(rc);
     }
+    chains.set(e.id, chain);
     // Register this cable's flat cells as occupied (bridged spans stay at y+1,
     // so the crossed cell remains owned by the earlier cable only).
     for (let i = 0; i < path.length; i++) {
@@ -313,5 +322,5 @@ export function route3DCables(
     }
   }
 
-  return { cells: out, flatPaths, failed };
+  return { cells: out, flatPaths, chains, failed };
 }

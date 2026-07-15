@@ -180,7 +180,9 @@ export default function App() {
             ))}
           </div>
           <div className="spacer" />
-          <span className="footnote">drag to orbit · scroll to zoom · right-drag to pan</span>
+          <span className="footnote">
+            cables bend as in-game (L within a block) · drag orbit · scroll zoom · right-drag pan
+          </span>
         </div>
         <div className="canvas-view">
           {result.ok ? (
