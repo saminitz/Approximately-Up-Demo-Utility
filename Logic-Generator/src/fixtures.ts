@@ -11,11 +11,19 @@
 // the anchor. The i-th item from the anchor corner is index i.
 
 import type { BlockNode } from "./compiler/graph";
-import type { LaidOutGraph } from "./layout/layout";
+import type { Cell, LaidOutGraph } from "./layout/layout";
 import { INTERIOR_BASE_CELL } from "./layout/layout";
 import { footprintForOp } from "./catalog/ports";
 import { OPS, type OpKey } from "./formula/catalog";
-import { CORNER_ROT, type CableCell } from "./layout/cableShapes";
+import {
+  CORNER_ROT,
+  DIR_VEC,
+  cableMetaFromDirs,
+  cornerRot,
+  type CableCell,
+  type Dir3,
+  type PlaneDir,
+} from "./layout/cableShapes";
 import { PREFAB_TABLE } from "./serializer/prefabTable";
 import { ROTATIONS } from "./serializer/rotations";
 
@@ -24,14 +32,18 @@ const BASE = INTERIOR_BASE_CELL;
 /** Spacing along the index axis: 2-wide block + a gap wide enough to see. */
 const STEP_X = 4;
 
-function emptyLaid(nodes: BlockNode[], cableCells: CableCell[]): LaidOutGraph {
+function emptyLaid(
+  nodes: BlockNode[],
+  cableCells: CableCell[],
+  cableChains: LaidOutGraph["cableChains"] = [],
+): LaidOutGraph {
   const cells = [...nodes.map((n) => n.cell!), ...cableCells];
   return {
     nodes,
     edges: [],
     routes: [],
     cableCells,
-    cableChains: [],
+    cableChains,
     inputs: [],
     outputs: [],
     bounds: {
@@ -113,6 +125,122 @@ export function fixtureAllCableRots(): LaidOutGraph {
   return emptyLaid(markers(cells), cells);
 }
 
+const DIRS: Dir3[] = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"];
+const opposite = (d: Dir3) => ((d[0] === "+" ? "-" : "+") + d[1]) as Dir3;
+const key = (c: Cell) => `${c.x},${c.y},${c.z}`;
+const step = (c: Cell, d: Dir3): Cell => {
+  const v = DIR_VEC[d];
+  return { x: c.x + v[0], y: c.y + v[1], z: c.z + v[2] };
+};
+/** Arm set of the cell reached by `into`, then left by `out`. */
+const armKey = (into: Dir3, out: Dir3) => [opposite(into), out].sort().join("|");
+
+/** All 12 L shapes = every unordered pair of non-opposite directions. */
+const ALL_LS = new Set(
+  DIRS.flatMap((a) => DIRS.filter((b) => b !== a && b !== opposite(a)).map((b) => armKey(opposite(a), b))),
+);
+
+/**
+ * Self-avoiding walk whose turn cells cover all 12 L shapes exactly.
+ *
+ * Constraints that keep the strand readable and writable in-game:
+ *  - no two non-consecutive cells touch, so the strand never reads as a tee/cross;
+ *  - no vertical straight (a ±Y run of 2+), since only X/Z straights have a
+ *    measured rot — every vertical move is a single cell between two corners;
+ *  - both ends run horizontally, since only planar endpoint caps are measured.
+ */
+function snakeMoves(maxLen = 40): Dir3[] {
+  const start: Cell = { x: 0, y: 0, z: 0 };
+  const inBox = (c: Cell) => c.x >= 0 && c.x <= 7 && c.y >= 0 && c.y <= 4 && c.z >= 0 && c.z <= 7;
+  const path = [start];
+  const used = new Set([key(start)]);
+  const moves: Dir3[] = [];
+  const covered = new Map<string, number>();
+
+  const fits = (c: Cell) =>
+    inBox(c) &&
+    !used.has(key(c)) &&
+    // touching any earlier cell but the one we came from would fuse the strand
+    DIRS.filter((d) => used.has(key(step(c, d)))).length === 1;
+
+  const dfs = (): boolean => {
+    const prev = moves.at(-1);
+    if (covered.size === ALL_LS.size && prev && !prev.includes("Y")) return true;
+    if (moves.length >= maxLen) return false;
+    const here = path.at(-1)!;
+    // Prefer moves that reveal a shape we don't have yet.
+    const options = DIRS.filter((d) => fits(step(here, d))).sort(
+      (a, b) =>
+        Number(prev !== undefined && covered.has(armKey(prev, a))) -
+        Number(prev !== undefined && covered.has(armKey(prev, b))),
+    );
+    for (const d of options) {
+      if (prev === d && d.includes("Y")) continue; // vertical straight: no known rot
+      // A straight's arm set is an opposite pair, not an L — never counts.
+      const key0 = prev === undefined ? null : armKey(prev, d);
+      const arm = key0 !== null && ALL_LS.has(key0) ? key0 : null;
+      if (arm !== null) covered.set(arm, (covered.get(arm) ?? 0) + 1);
+      const next = step(here, d);
+      path.push(next);
+      used.add(key(next));
+      moves.push(d);
+      if (dfs()) return true;
+      moves.pop();
+      used.delete(key(next));
+      path.pop();
+      if (arm !== null) {
+        const n = covered.get(arm)! - 1;
+        if (n === 0) covered.delete(arm);
+        else covered.set(arm, n);
+      }
+    }
+    return false;
+  };
+
+  // The first move must be horizontal too — cell 0 is an endpoint cap.
+  for (const d of DIRS.filter((x) => !x.includes("Y"))) {
+    const next = step(start, d);
+    if (!fits(next)) continue;
+    path.push(next);
+    used.add(key(next));
+    moves.push(d);
+    if (dfs()) return moves;
+    moves.pop();
+    used.delete(key(next));
+    path.pop();
+  }
+  throw new Error("no cable snake covering all 12 L shapes");
+}
+
+/**
+ * ONE continuous cable strand that passes through all 12 distinct L
+ * orientations, plus straights and two endpoint caps — the successor to
+ * {@link fixtureAllCableRots}, whose 12 isolated corners could not be rebuilt
+ * by hand once an arm pointed up or down (see `cableRot.test.ts`). A real
+ * strand can: the game will only let you draw shapes it actually has, so
+ * whatever the user fixes in-game is readable straight back into `CORNER_ROT`.
+ */
+export function fixtureCableSnake(): LaidOutGraph {
+  const moves = snakeMoves();
+  const cells: CableCell[] = [];
+  let at: Cell = { x: BASE.x, y: BASE.y, z: BASE.z };
+  for (let i = 0; i <= moves.length; i++) {
+    const dirs: Dir3[] = [];
+    if (i > 0) dirs.push(opposite(moves[i - 1]));
+    if (i < moves.length) dirs.push(moves[i]);
+    const vertical = dirs.some((d) => d.includes("Y"));
+    const meta = vertical
+      ? { rot: cornerRot(dirs), trailing: 1 }
+      : cableMetaFromDirs(dirs as PlaneDir[]);
+    cells.push({ ...at, rot: meta.rot, trailing: meta.trailing });
+    if (i < moves.length) at = step(at, moves[i]);
+  }
+  // Hand the viewer the real connectivity. Without a chain it falls back to
+  // reading arms out of `_gt.rot`, which draws every cell as an L — including
+  // the straights, whose rot 0 collides with the "+X|+Z" corner's rot 0.
+  return emptyLaid(markers(cells), cells, [{ edgeId: "fx-snake", cells }]);
+}
+
 /**
  * Axis probe, anchored at grid (0,0,0) instead of the usual interior anchor: one
  * constant block at the origin and one 4 cells out along each axis, the block's
@@ -144,4 +272,5 @@ export const FIXTURES: { name: string; build: () => LaidOutGraph }[] = [
   { name: "All blocks", build: fixtureAllBlocks },
   { name: "All block rotations", build: fixtureAllRotations },
   { name: "All cable rotations", build: fixtureAllCableRots },
+  { name: "Cable snake (all rotations, continuous)", build: fixtureCableSnake },
 ];

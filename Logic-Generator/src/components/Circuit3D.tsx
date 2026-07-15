@@ -156,7 +156,14 @@ export function Circuit3D({ laid }: Circuit3DProps) {
           .map(([d]) => d);
         if (idx === 0 && startInto) dirs.push(startInto);
         if (idx === last && endInto) dirs.push(endInto);
-        cables.push({ x: c.x, y: c.y, z: c.z, dirs: dirs.map((d) => DIR_TO_SCENE[d]) });
+        // A chain end with no block to enter is NOT a flat stub: every measured
+        // ENDPOINT rot is an L with a vertical arm (15/17/14 bend down, 21 up),
+        // trailing 1 like a corner. Take that second arm off the cell's own rot.
+        if ((idx === 0 && !startInto) || (idx === last && !endInto)) {
+          dirs.push(...cableDirsForRot(c.rot));
+        }
+        const arms = [...new Set(dirs)];
+        cables.push({ x: c.x, y: c.y, z: c.z, dirs: arms.map((d) => DIR_TO_SCENE[d]) });
       });
     }
 

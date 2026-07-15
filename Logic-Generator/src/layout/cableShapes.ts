@@ -96,7 +96,7 @@ export function cornerRot(dirs: Iterable<Dir3>): number {
   return CORNER_ROT[[...new Set(dirs)].sort().join("|")] ?? 5;
 }
 
-const DIR_VEC: Record<Dir3, Vec3> = {
+export const DIR_VEC: Record<Dir3, Vec3> = {
   "+X": [1, 0, 0], "-X": [-1, 0, 0],
   "+Y": [0, 1, 0], "-Y": [0, -1, 0],
   "+Z": [0, 0, 1], "-Z": [0, 0, -1],
