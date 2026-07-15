@@ -11,6 +11,15 @@ import {
   outputPortInto,
 } from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
+import { ROTATIONS, type Quaternion } from "../serializer/rotations";
+
+// `_gt.rot` as a three quaternion. ROTATIONS entries are already (x,y,z,w) in the
+// game's frame, which maps 1:1 to the scene's (game Y up = three Y up).
+// ponytail: assumes no extra basis flip between game and three. The rotation
+// fixture exists precisely to catch it if there is one.
+function rotQuat(rot: number | undefined): Quaternion | undefined {
+  return rot === undefined ? undefined : ROTATIONS[rot] ?? undefined;
+}
 
 // A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
 // centre toward each neighbour it links to (within its own edge chain, so parallel
@@ -88,7 +97,7 @@ export interface Circuit3DProps {
 export function Circuit3D({ laid }: Circuit3DProps) {
   // Center the whole scene on the model centroid so it sits near the origin
   // regardless of the game-grid anchor (~200,24,200).
-  const { center, radius, blocks, ports, cables } = useMemo(() => {
+  const { center, radius, blocks, cables, loose } = useMemo(() => {
     let minX = Infinity, minY = Infinity, minZ = Infinity;
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     const acc = (x: number, y: number, z: number) => {
@@ -104,26 +113,34 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         const c = n.cell!;
         acc(c.x, c.y, c.z);
         acc(c.x + w - 1, c.y, c.z + h - 1);
+        // Box centre = anchor (min corner) + half the footprint − half a cell.
+        const cx = c.x + (w - 1) / 2;
+        const cy = c.y;
+        const cz = c.z + (h - 1) / 2;
+        // Ports live in the block's LOCAL frame (offset from its centre) so the
+        // block's `_gt.rot` carries them along — a port is part of the block.
+        const local = (p: Vec3, out: boolean) => {
+          acc(p.x, p.y, p.z);
+          return { pos: [p.x - cx, p.y - cy + 0.55, p.z - cz] as [number, number, number], out };
+        };
+        const ports = [
+          ...n.inputs.map((_, i) => local(inputPortCell(n.op, c, i), false)),
+          ...n.outputs.map((_, i) => local(outputPortCell(n.op, c, i), true)),
+        ];
         return {
           id: n.id,
-          label: OPS[n.op].label,
+          label: n.label || OPS[n.op].label,
           symbol: SYMBOL[n.op],
+          quat: rotQuat(n.rot),
           color: blockColor(n),
-          // Box centre = anchor (min corner) + half the footprint − half a cell.
-          cx: c.x + (w - 1) / 2,
-          cy: c.y,
-          cz: c.z + (h - 1) / 2,
+          cx,
+          cy,
+          cz,
           w,
           h,
+          ports,
         };
       });
-
-    const ports: Array<Vec3 & { out: boolean }> = [];
-    for (const n of laid.nodes) {
-      if (!n.cell) continue;
-      n.inputs.forEach((_, i) => ports.push({ ...inputPortCell(n.op, n.cell!, i), out: false }));
-      n.outputs.forEach((_, i) => ports.push({ ...outputPortCell(n.op, n.cell!, i), out: true }));
-    }
 
     // Per cell: arms toward every neighbour in its own edge chain, PLUS an arm
     // into the block at each chain endpoint (the port's "into" direction) — so a
@@ -150,10 +167,21 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       });
     }
 
+    // Cable cells with no chain (the calibration fixtures place bare cells): draw
+    // each one oriented by its own `_gt.rot` instead of by connectivity, so the
+    // scene predicts the in-game mesh angle and the two can be diffed.
+    const chained = new Set(cables.map((c) => cellKey(c.x, c.y, c.z)));
+    const loose = laid.cableCells
+      .filter((c) => !chained.has(cellKey(c.x, c.y, c.z)))
+      .map((c) => {
+        acc(c.x, c.y, c.z);
+        return { x: c.x, y: c.y, z: c.z, rot: c.rot, trailing: c.trailing };
+      });
+
     if (!Number.isFinite(minX)) { minX = maxX = minY = maxY = minZ = maxZ = 0; }
     const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 };
     const radius = Math.max(6, maxX - minX, maxZ - minZ, maxY - minY);
-    return { center, radius, blocks, ports, cables };
+    return { center, radius, blocks, cables, loose };
   }, [laid]);
 
   // World = game cell − centroid. Game Y (up) maps straight to three's Y-up.
@@ -173,20 +201,28 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       <directionalLight position={[dist, dist * 2, dist]} intensity={0.8} />
       <gridHelper args={[radius * 3, Math.ceil(radius * 3), "#30363d", "#21262d"]} position={[0, wy(laid.nodes[0]?.cell?.y ?? 0) - 0.5, 0]} />
 
+      {/* Body + top glyph share one group, so an explicit `_gt.rot` (calibration
+          fixtures) turns the glyph with the block and the angle stays readable. */}
       {blocks.map((b) => (
-        <mesh key={b.id} position={[wx(b.cx), wy(b.cy), wz(b.cz)]}>
-          <boxGeometry args={[b.w, 1, b.h]} />
-          <meshStandardMaterial color={b.color} />
-        </mesh>
-      ))}
-
-      {blocks.filter((b) => b.symbol).map((b) => (
-        <Text key={`sym-${b.id}`} position={[wx(b.cx), wy(b.cy) + 0.51, wz(b.cz)]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={Math.min(b.w, b.h) * 0.6} color="#0e1116"
-          anchorX="center" anchorY="middle">
-          {b.symbol}
-        </Text>
+        <group key={b.id} position={[wx(b.cx), wy(b.cy), wz(b.cz)]} quaternion={b.quat}>
+          <mesh>
+            <boxGeometry args={[b.w, 1, b.h]} />
+            <meshStandardMaterial color={b.color} />
+          </mesh>
+          {b.symbol && (
+            <Text position={[0, 0.51, 0]} rotation={[-Math.PI / 2, 0, 0]}
+              fontSize={Math.min(b.w, b.h) * 0.6} color="#0e1116"
+              anchorX="center" anchorY="middle">
+              {b.symbol}
+            </Text>
+          )}
+          {b.ports.map((p, i) => (
+            <mesh key={i} position={p.pos}>
+              <sphereGeometry args={[0.18, 8, 8]} />
+              <meshStandardMaterial color={p.out ? "#1a01f8" : "#fffd10"} />
+            </mesh>
+          ))}
+        </group>
       ))}
 
       {blocks.map((b) => (
@@ -196,13 +232,6 @@ export function Circuit3D({ laid }: Circuit3DProps) {
             {b.label}
           </Text>
         </Billboard>
-      ))}
-
-      {ports.map((p, i) => (
-        <mesh key={i} position={[wx(p.x), wy(p.y) + 0.55, wz(p.z)]}>
-          <sphereGeometry args={[0.18, 8, 8]} />
-          <meshStandardMaterial color={p.out ? "#1a01f8" : "#fffd10"} />
-        </mesh>
       ))}
 
       {/* Each cell = a centre node + one flat arm per linked direction (straight,
@@ -219,6 +248,29 @@ export function Circuit3D({ laid }: Circuit3DProps) {
               <meshStandardMaterial color={CABLE_COLOR} />
             </mesh>
           ))}
+        </group>
+      ))}
+
+      {/* Bare cable cells (calibration fixture): a straight-X bar with a +Y tick
+          for chirality, spun by ROTATIONS[rot], labelled with rot/trailing. */}
+      {loose.map((c, i) => (
+        <group key={`loose-${i}`} position={[wx(c.x), wy(c.y), wz(c.z)]}>
+          <group quaternion={rotQuat(c.rot)}>
+            <mesh>
+              <boxGeometry args={[ARM * 2, FLAT, WIDE]} />
+              <meshStandardMaterial color={CABLE_COLOR} />
+            </mesh>
+            <mesh position={[ARM * 0.7, 0.15, 0]}>
+              <boxGeometry args={[FLAT, 0.3, WIDE]} />
+              <meshStandardMaterial color="#f59e0b" />
+            </mesh>
+          </group>
+          <Billboard position={[0, 0.7, 0]}>
+            <Text fontSize={0.3} color="#e6edf3" anchorX="center" anchorY="bottom"
+              outlineWidth={0.02} outlineColor="#0e1116">
+              {`${c.rot}${c.trailing ? "·t1" : ""}`}
+            </Text>
+          </Billboard>
         </group>
       ))}
 

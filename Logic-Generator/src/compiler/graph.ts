@@ -13,6 +13,9 @@ export interface BlockNode {
   signalName?: string;
   /** Layout result (grid cells), filled by the layout engine. */
   cell?: { x: number; y: number; z: number };
+  /** Explicit `_gt.rot` override. The compiler/layout never sets this; only the
+   * calibration fixtures do. Unset = the exporter's per-op default. */
+  rot?: number;
 }
 
 export interface PortRef {

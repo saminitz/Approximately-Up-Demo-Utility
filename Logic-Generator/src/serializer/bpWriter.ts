@@ -157,7 +157,7 @@ export function buildBp(
     // Sink terminals reuse the source (wireless) prefab, whose port faces +X.
     // As a sink the cable arrives from -X, so flip 180° (rot 6) or the port
     // dangles and the blueprint is non-functional. ("A How it should be.bp")
-    const rot = node.op === "output" ? ROT_UPRIGHT : opts.rot;
+    const rot = node.rot ?? (node.op === "output" ? ROT_UPRIGHT : opts.rot);
     const gt = packGt({ x: cell.x, y: cell.y, z: cell.z, rot });
     const isWireless = entry.structIndex === PREFAB_TABLE.input.structIndex;
     writeRecord(w, struct, entry.hash, {

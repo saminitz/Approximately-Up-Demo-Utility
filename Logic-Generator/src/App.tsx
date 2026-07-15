@@ -8,6 +8,8 @@ import {
   exportBlueprintZip,
 } from "./serializer/exportZip";
 import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
+import { FIXTURES } from "./fixtures";
+import type { LaidOutGraph } from "./layout/layout";
 
 const EXAMPLES: { name: string; src: string }[] = [
   {
@@ -78,21 +80,24 @@ export default function App() {
   const [folder, setFolder] = useState("80 Controllers");
   const [emitCables, setEmitCables] = useState(true);
   const [lastExport, setLastExport] = useState<string | null>(null);
+  // A calibration fixture takes over the viewer while selected; the formula
+  // pipeline keeps running underneath, untouched.
+  const [fixture, setFixture] = useState<{ name: string; laid: LaidOutGraph } | null>(null);
 
   const result = useMemo(() => runPipeline(src), [src]);
+  const shown = fixture ? fixture.laid : result.ok ? result.laid : null;
 
-  const onExport = () => {
-    if (!result.ok) return;
-    const res = exportBlueprintZip(result.laid, {
-      name,
-      folder,
-      emitCables,
-    });
+  const doExport = (laid: LaidOutGraph, bpName: string, cables: boolean) => {
+    const res = exportBlueprintZip(laid, { name: bpName, folder, emitCables: cables });
     downloadBytes(res.zip, res.zipName);
     setLastExport(
       `Exported ${res.zipName} — ${res.build.blockRecords} blocks, ` +
         `${res.build.cableRecords} cable cells, files: ${res.files.join(", ")}.`,
     );
+  };
+
+  const onExport = () => {
+    if (result.ok) doExport(result.laid, name, emitCables);
   };
 
   return (
@@ -163,6 +168,44 @@ export default function App() {
           {lastExport && <p className="footnote">{lastExport}</p>}
         </div>
 
+        <div className="section">
+          <label className="title">Calibration blueprints</label>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            {FIXTURES.map((f) => (
+              <button
+                key={f.name}
+                className={fixture?.name === f.name ? "primary" : undefined}
+                onClick={() => setFixture({ name: f.name, laid: f.build() })}
+                title={`Show the "${f.name}" fixture in the viewer`}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+          {fixture && (
+            <div className="actions" style={{ flexWrap: "wrap" }}>
+              <button
+                className="primary"
+                onClick={() => doExport(fixture.laid, `Calib ${fixture.name}`, true)}
+              >
+                Download “{fixture.name}” ZIP
+              </button>
+              <button onClick={() => setFixture(null)}>Back to formula</button>
+            </div>
+          )}
+          <p className="footnote">
+            Synthetic fixtures for diffing the viewer against a hand-built in-game copy.
+            Index is encoded by position: item i sits i steps along +X from the anchor,
+            bracketed by constants reading 0 (start) and 100 (end). Blocks and bare cable
+            cells are drawn at their real <code>_gt.rot</code>.
+          </p>
+          <p className="footnote">
+            <b>Axis markers</b> anchors at grid (0,0,0) and spells the axes with block
+            values: <code>0</code> = origin, <code>1</code> = +X, <code>2</code> = +Y (up),
+            <code>3</code> = +Z — each 4 cells out from the origin block.
+          </p>
+        </div>
+
         <p className="footnote">
           Blueprint schema header taken verbatim from a real v{BLUEPRINT_GAME_VERSION}{" "}
           reference file. Operator prefab hashes and cable geometry are partly
@@ -185,8 +228,8 @@ export default function App() {
           </span>
         </div>
         <div className="canvas-view">
-          {result.ok ? (
-            <Circuit3D laid={result.laid} />
+          {shown ? (
+            <Circuit3D laid={shown} />
           ) : (
             <div className="empty">Fix the formula to see the circuit.</div>
           )}
