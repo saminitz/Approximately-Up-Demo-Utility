@@ -140,7 +140,7 @@ describe("cable orientation (rot in _gt)", () => {
 
     expect(cableMetaFromDirs(["+Z", "-Z"])).toMatchObject({ rot: 16, trailing: 0 });
 
-    expect(cableMetaFromDirs(["+X", "+Z"])).toMatchObject({ rot: 6, trailing: 1 });
+    expect(cableMetaFromDirs(["+X", "+Z"])).toMatchObject({ rot: 0, trailing: 1 });
 
     expect(cableMetaFromDirs(["+X"])).toMatchObject({ rot: 15, trailing: 1 });
 
@@ -169,6 +169,29 @@ describe("cable orientation (rot in _gt)", () => {
   });
 
 
+
+  it("flips sink terminals 180° (rot 6) so their port faces the cable", () => {
+    // "A Generated.bp" was invalid: output block at rot 3 → port dangled.
+    const laid = layoutGraph(compileFormula("a = b + c"));
+    const header = getReferenceHeader();
+    const { bytes } = buildBp(laid, DEFAULT_BP_OPTIONS);
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    let off = header.byteLength;
+    const blockRots: number[] = [];
+    while (off + 12 <= bytes.length) {
+      const structIndex = dv.getInt32(off + 8, true);
+      const sizeof = header.structs[structIndex].sizeof;
+      const dataStart = off + 12;
+      if (structIndex !== 2) {
+        blockRots.push(unpackGt(dv.getUint32(dataStart + GT_DATA_OFFSET, true)).rot);
+      }
+      off = dataStart + sizeof + 4;
+    }
+    // 3 wireless + 1 adder; exactly the one output terminal is flipped to rot 6.
+    expect(blockRots.filter((r) => r === ROT_UPRIGHT)).toHaveLength(1);
+    expect(blockRots.filter((r) => r === ROT_LOGIC)).toHaveLength(3);
+  });
 
   it("emits varied cable rot values for routed PD sample", () => {
 

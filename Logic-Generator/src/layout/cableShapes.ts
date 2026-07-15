@@ -58,11 +58,37 @@ const STRAIGHT_X: CableMeta = { rot: 0, trailing: 0, type: DEFAULT_CABLE_TYPE };
 const STRAIGHT_Z: CableMeta = { rot: 16, trailing: 0, type: DEFAULT_CABLE_TYPE };
 const BLOCK_STUB: CableMeta = { rot: 12, trailing: 0, type: DEFAULT_CABLE_TYPE };
 
+/** Cardinal directions including the vertical axis (used by bridge corners). */
+export type Dir3 = PlaneDir | "+Y" | "-Y";
+
+/**
+ * Every corner orientation, verified from `19192c81… Cable All Possible
+ * Rotations.bp`: one rot per L-turn keyed by the sorted neighbor-direction set.
+ * Flat corners (both arms horizontal) plus vertical corners (one arm ±Y, the
+ * horizontal↔up/down transitions inside a bridge). All corners have trailing 1.
+ */
+export const CORNER_ROT: Record<string, number> = {
+  // flat
+  "+X|+Z": 0, "+X|-Z": 22, "+Z|-X": 5, "-X|-Z": 23,
+  // up: horizontal arm + +Y
+  "+X|+Y": 10, "+Y|+Z": 9, "+Y|-X": 11, "+Y|-Z": 8,
+  // down: horizontal arm + -Y
+  "+X|-Y": 15, "+Z|-Y": 17, "-X|-Y": 7, "-Y|-Z": 20,
+};
+
+/** `_gt.rot` for a corner cell given its two neighbor directions (any axis). */
+export function cornerRot(dirs: Iterable<Dir3>): number {
+  return CORNER_ROT[[...new Set(dirs)].sort().join("|")] ?? 5;
+}
+
+/** Elevated straight (bridge span at y+1): X keeps 0, Z is 21 (not ground 16). */
+export const SPAN_ROT = { X: 0, Z: 21 } as const;
+
 const CORNER: Record<string, CableMeta> = {
-  "+X|-Z": { rot: 5, trailing: 0, type: DEFAULT_CABLE_TYPE },
-  "-X|-Z": { rot: 4, trailing: 1, type: DEFAULT_CABLE_TYPE },
-  "+Z|-X": { rot: 5, trailing: 1, type: DEFAULT_CABLE_TYPE },
-  "+X|+Z": { rot: 6, trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+X|+Z": { rot: CORNER_ROT["+X|+Z"], trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+X|-Z": { rot: CORNER_ROT["+X|-Z"], trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "+Z|-X": { rot: CORNER_ROT["+Z|-X"], trailing: 1, type: DEFAULT_CABLE_TYPE },
+  "-X|-Z": { rot: CORNER_ROT["-X|-Z"], trailing: 1, type: DEFAULT_CABLE_TYPE },
 };
 
 const TEE: Record<string, CableMeta> = {
@@ -118,45 +144,3 @@ export function cableShapeFromDirs(dirs: Iterable<PlaneDir>): {
   return { shape: m.rot, trailing: m.trailing, type: m.type };
 }
 
-function cellKey(c: Cell): string {
-  return `${c.x},${c.y},${c.z}`;
-}
-
-/**
- * Collect routed path cells and assign per-cell cable metadata from path
- * connectivity. Cells shared by multiple routes merge their direction sets.
- */
-export function buildCableCells(
-  routes: { cells: Cell[] }[],
-  blocked: Set<string>,
-  /** cellKey -> forced `_gt.rot` for the first cable cell at a block port. */
-  forcedRot: Map<string, number> = new Map(),
-): CableCell[] {
-  const dirSets = new Map<string, Set<PlaneDir>>();
-
-  const addDir = (from: Cell, to: Cell) => {
-    const d = dirBetween(from, to);
-    if (!d) return;
-    const rev: PlaneDir =
-      d === "+X" ? "-X" : d === "-X" ? "+X" : d === "+Z" ? "-Z" : "+Z";
-    const kFrom = cellKey(from);
-    const kTo = cellKey(to);
-    if (!blocked.has(kFrom)) (dirSets.get(kFrom) ?? dirSets.set(kFrom, new Set()).get(kFrom)!).add(d);
-    if (!blocked.has(kTo)) (dirSets.get(kTo) ?? dirSets.set(kTo, new Set()).get(kTo)!).add(rev);
-  };
-
-  for (const route of routes) {
-    const cells = route.cells;
-    for (let i = 0; i < cells.length - 1; i++) addDir(cells[i], cells[i + 1]);
-  }
-
-  const out: CableCell[] = [];
-  for (const [key, dirs] of dirSets) {
-    if (blocked.has(key)) continue;
-    const [x, y, z] = key.split(",").map(Number);
-    const meta = cableMetaFromDirs(dirs);
-    const forced = forcedRot.get(key);
-    out.push({ x, y, z, rot: forced ?? meta.rot, trailing: meta.trailing });
-  }
-  return out;
-}

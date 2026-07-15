@@ -176,33 +176,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -228,33 +228,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -280,33 +280,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -332,33 +332,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -384,33 +384,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -436,33 +436,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {
@@ -488,33 +488,33 @@
       "outputs": 1,
       "ports": [
         {
-          "kind": "output",
+          "kind": "input",
           "dx": -1,
           "dy": 0,
           "dz": 0,
           "face": "-X",
           "cableRot": 5,
-          "chainLen": 2
-        },
-        {
-          "kind": "input",
-          "dx": 2,
-          "dy": 0,
-          "dz": 1,
-          "face": "+X",
-          "cableRot": 0,
           "chainLen": 1,
           "portIndex": 0
         },
         {
           "kind": "input",
-          "dx": 3,
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
           "dy": 0,
           "dz": 1,
           "face": "+X",
           "cableRot": 0,
-          "chainLen": 1,
-          "portIndex": 1
+          "chainLen": 2
         }
       ],
       "validation": {

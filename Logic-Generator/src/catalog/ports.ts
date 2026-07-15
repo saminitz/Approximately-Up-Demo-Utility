@@ -99,10 +99,10 @@ export const PORT_MAP_STATS = portMap._stats;
 
 const DEFAULT_BINARY: PortTopology = {
   inputs: [
-    { face: "+X", dx: 2, dz: 1, chainLen: 1 },
-    { face: "+X", dx: 3, dz: 1, chainLen: 1 },
+    { face: "-X", dx: -1, dz: 0, chainLen: 1 },
+    { face: "-X", dx: -1, dz: 1, chainLen: 1 },
   ],
-  outputs: [{ face: "-X", dx: -1, dz: 0, chainLen: 2 }],
+  outputs: [{ face: "+X", dx: 2, dz: 1, chainLen: 2 }],
 };
 
 const DEFAULT_UNARY: PortTopology = {

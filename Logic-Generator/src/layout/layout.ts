@@ -1,6 +1,7 @@
 import type { BlockGraph, BlockNode } from "../compiler/graph";
 import { inputPortCell, inputPortRot, outputPortCell, outputPortRot } from "../catalog/ports";
-import { buildCableCells, type CableCell } from "./cableShapes";
+import type { CableCell } from "./cableShapes";
+import { route3DCables, type RouteEdge } from "./cableRoute";
 
 export interface Cell {
   x: number;
@@ -46,6 +47,14 @@ export interface LayoutOptions {
  * (the horizontal circuit plane). We anchor at the low corner of that cluster.
  */
 export const INTERIOR_BASE_CELL = { x: 200, y: 24, z: 192 } as const;
+
+/** 2×2 block footprint offsets (dx, dz) from the anchor (min corner). */
+const FOOTPRINT_2X2: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+];
 
 export const DEFAULT_LAYOUT: LayoutOptions = {
   colStep: 6,
@@ -137,48 +146,40 @@ export function layoutGraph(
   });
 
   // --- Route cables on the X-Z plane -----------------------------------------
-  // Ground-truth `_gt.rot` for the first cable cell at each block port (Block List).
-  const forcedRot = new Map<string, number>();
-  const cellKey = (c: Cell) => `${c.x},${c.y},${c.z}`;
-
-  const routes: CableRoute[] = graph.edges.map((e) => {
+  // Each edge is an independent chain routed around blocks and other cables;
+  // crossings bridge over (see cableRoute.ts). Port cells carry the verified
+  // first-cable rot (Block List): 5 on the west face, 0 on the east face.
+  const routeEdges: RouteEdge[] = graph.edges.map((e) => {
     const from = byId.get(e.from.blockId)!;
     const to = byId.get(e.to.blockId)!;
     const start = outputPortCell(from.op, from.cell!, e.from.port);
     const end = inputPortCell(to.op, to.cell!, e.to.port);
-    forcedRot.set(cellKey({ ...start, y: opts.originY }), outputPortRot(from.op, e.from.port));
-    forcedRot.set(cellKey({ ...end, y: opts.originY }), inputPortRot(to.op, e.to.port));
-    const midX = Math.max(start.x, Math.floor((start.x + end.x) / 2));
-
-    const cells: Cell[] = [];
-    const push = (x: number, z: number) => {
-      const last = cells[cells.length - 1];
-      if (last && last.x === x && last.z === z) return;
-      cells.push({ x, y: opts.originY, z });
-    };
-    push(start.x, start.z);
-    for (let x = start.x + 1; x <= midX; x++) push(x, start.z);
-    const zStep = end.z >= start.z ? 1 : -1;
-    for (let z = start.z; z !== end.z; z += zStep) push(midX, z);
-    push(midX, end.z);
-    for (let x = midX; x <= end.x; x++) push(x, end.z);
-    push(end.x, end.z);
-
     return {
-      edgeId: e.id,
-      fromBlock: e.from.blockId,
-      toBlock: e.to.blockId,
-      cells,
+      id: e.id,
+      start: { ...start, y: opts.originY },
+      end: { ...end, y: opts.originY },
+      startRot: outputPortRot(from.op, e.from.port),
+      endRot: inputPortRot(to.op, e.to.port),
     };
   });
 
-  const blocked = new Set(
-    graph.nodes
-      .map((n) => n.cell)
-      .filter((c): c is Cell => c !== undefined)
-      .map((c) => `${c.x},${c.y},${c.z}`),
+  // Blocks occupy a 2×2 footprint (anchor is the min corner); the router must
+  // treat every footprint cell as an obstacle, not just the anchor.
+  // ponytail: 2×2 covers all arithmetic/io/sensor blocks. The "2 size" router/
+  // remap blocks are 2×4 — widen their footprint once a 2×4 size demo confirms it.
+  const blockCells = graph.nodes.flatMap((n) =>
+    n.cell
+      ? FOOTPRINT_2X2.map(([dx, dz]) => ({ x: n.cell!.x + dx, y: n.cell!.y, z: n.cell!.z + dz }))
+      : [],
   );
-  const cableCells = buildCableCells(routes, blocked, forcedRot);
+  const { cells: cableCells, flatPaths } = route3DCables(routeEdges, blockCells);
+
+  const routes: CableRoute[] = graph.edges.map((e) => ({
+    edgeId: e.id,
+    fromBlock: e.from.blockId,
+    toBlock: e.to.blockId,
+    cells: flatPaths.get(e.id) ?? [],
+  }));
 
   const cols = layers.length;
   const maxX = opts.originX + (cols - 1) * opts.colStep + 1;

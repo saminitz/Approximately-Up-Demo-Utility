@@ -17,12 +17,12 @@ describe("port map (Block List cable markers)", () => {
     expect(PORT_MAP_STATS?.cableChains).toBe(47);
   });
 
-  it("maps binary ops: output on -X, inputs on +X", () => {
+  it("maps binary ops: inputs on -X (west), output on +X (east)", () => {
     const add = topologyForOp("add");
-    expect(add.outputs).toEqual([{ face: "-X", dx: -1, dz: 0, chainLen: 2, cableRot: 5 }]);
+    expect(add.outputs).toEqual([{ face: "+X", dx: 2, dz: 1, chainLen: 2, cableRot: 0 }]);
     expect(add.inputs).toEqual([
-      { face: "+X", dx: 2, dz: 1, chainLen: 1, cableRot: 0 },
-      { face: "+X", dx: 3, dz: 1, chainLen: 1, cableRot: 0 },
+      { face: "-X", dx: -1, dz: 0, chainLen: 1, cableRot: 5 },
+      { face: "-X", dx: -1, dz: 1, chainLen: 1, cableRot: 5 },
     ]);
   });
 
@@ -56,8 +56,8 @@ describe("port map (Block List cable markers)", () => {
     const anchor = adder.cell!;
     const outCell = outputPortCell("add", anchor, 0);
     const in0 = inputPortCell("add", anchor, 0);
-    expect(outCell).toEqual({ x: anchor.x - 1, y: anchor.y, z: anchor.z });
-    expect(in0).toEqual({ x: anchor.x + 2, y: anchor.y, z: anchor.z + 1 });
+    expect(outCell).toEqual({ x: anchor.x + 2, y: anchor.y, z: anchor.z + 1 });
+    expect(in0).toEqual({ x: anchor.x - 1, y: anchor.y, z: anchor.z });
     expect(laid.routes.length).toBeGreaterThan(0);
     for (const route of laid.routes) {
       expect(route.cells[0]).not.toEqual(anchor);
@@ -66,8 +66,8 @@ describe("port map (Block List cable markers)", () => {
 
   it("forces first-cable rot: 5 on west face, 0 on east face", () => {
     // Block List ground truth: -X ports rot 5, +X ports rot 0.
-    expect(outputPortRot("add", 0)).toBe(5); // adder output on -X
-    expect(inputPortRot("add", 0)).toBe(0); // adder inputs on +X
+    expect(outputPortRot("add", 0)).toBe(0); // adder output on +X (east)
+    expect(inputPortRot("add", 0)).toBe(5); // adder inputs on -X (west)
     expect(inputPortRot("not", 0)).toBe(5); // unary input on -X
     expect(outputPortRot("not", 0)).toBe(0); // unary output on +X
   });
@@ -79,7 +79,7 @@ describe("port map (Block List cable markers)", () => {
     const cable = laid.cableCells.find(
       (c) => c.x === inCell.x && c.z === inCell.z,
     );
-    expect(cable?.rot).toBe(0); // +X input stub
+    expect(cable?.rot).toBe(5); // -X input stub (west)
   });
 
   it("exposes router4 with four +X outputs", () => {
