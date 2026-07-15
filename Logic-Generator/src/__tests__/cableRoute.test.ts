@@ -32,7 +32,7 @@ describe("game-grid cable router", () => {
     const y = 24;
     const edges: RouteEdge[] = [
       { id: "A", start: { x: 0, y, z: 0 }, end: { x: 100, y, z: 0 }, startRot: 0, endRot: 0 },
-      { id: "B", start: { x: 50, y, z: -1 }, end: { x: 50, y, z: 1 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 50, y, z: -2 }, end: { x: 50, y, z: 2 }, startRot: 0, endRot: 0 },
     ];
     const blocks: Cell[] = [];
     const { cells, failed } = route3DCables(edges, blocks);
@@ -41,5 +41,58 @@ describe("game-grid cable router", () => {
     // The crossed cell (50,y,0) is owned by exactly one cable at y0.
     const atCrossY0 = cells.filter((c) => c.x === 50 && c.z === 0 && c.y === y);
     expect(atCrossY0.length).toBe(1);
+    // The bridge foot (y0 riser at z=-1) is a ramp corner (trailing 1), not flat.
+    const foot = cells.find((c) => c.x === 50 && c.y === y && c.z === -1);
+    expect(foot?.trailing).toBe(1);
+  });
+
+  it("spans multiple consecutive crossings with one bridge", () => {
+    const y = 24;
+    // Two parallel walls at z=0 and z=1; B must cross both. Long walls make the
+    // detour far more expensive than a single bridge over both.
+    const { cells, failed } = route3DCables([
+      { id: "A1", start: { x: 0, y, z: 0 }, end: { x: 400, y, z: 0 }, startRot: 0, endRot: 0 },
+      { id: "A2", start: { x: 0, y, z: 1 }, end: { x: 400, y, z: 1 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 200, y, z: -2 }, end: { x: 200, y, z: 3 }, startRot: 0, endRot: 0 },
+    ], []);
+    expect(failed).toEqual([]);
+    // Both crossed cells (z=0 and z=1) are spanned at y+1 by B, and their y0
+    // stays owned by A1/A2 (B places no y0 cell there).
+    for (const z of [0, 1]) {
+      expect(cells.some((c) => c.x === 200 && c.y === y + 1 && c.z === z)).toBe(true);
+      const bAtY0 = cells.filter((c) => c.x === 200 && c.y === y && c.z === z);
+      expect(bAtY0.length).toBe(1); // only A's cell, not B's
+    }
+  });
+
+  // Ramp rots come from each cell's own-chain 3D topology, asserted against the
+  // ground-truth Cable Bridge.bp table (isolated bridge, no sibling cables).
+  const at = (cs: Array<Cell & { rot: number }>, x: number, yy: number, z: number) =>
+    cs.find((c) => c.x === x && c.y === yy && c.z === z);
+
+  it("+Z-travel bridge ramps use the verified rots", () => {
+    const y = 24;
+    const { cells } = route3DCables([
+      { id: "A", start: { x: 0, y, z: 0 }, end: { x: 100, y, z: 0 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 50, y, z: -2 }, end: { x: 50, y, z: 2 }, startRot: 0, endRot: 0 },
+    ], []);
+    expect(at(cells, 50, y, -1)?.rot).toBe(21); // up-foot   {+Y,-Z}
+    expect(at(cells, 50, y + 1, -1)?.rot).toBe(12); // up-top  {+Z,-Y}
+    expect(at(cells, 50, y + 1, 0)?.rot).toBe(21); // span Z
+    expect(at(cells, 50, y + 1, 1)?.rot).toBe(20); // down-top {-Y,-Z}
+    expect(at(cells, 50, y, 1)?.rot).toBe(9); // down-foot    {+Y,+Z}
+  });
+
+  it("+X-travel bridge ramps use the verified rots", () => {
+    const y = 24;
+    const { cells } = route3DCables([
+      { id: "A", start: { x: 0, y, z: 0 }, end: { x: 0, y, z: 100 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: -2, y, z: 50 }, end: { x: 2, y, z: 50 }, startRot: 0, endRot: 0 },
+    ], []);
+    expect(at(cells, -1, y, 50)?.rot).toBe(11); // up-foot   {+Y,-X}
+    expect(at(cells, -1, y + 1, 50)?.rot).toBe(2); // up-top  {+X,-Y}
+    expect(at(cells, 0, y + 1, 50)?.rot).toBe(0); // span X
+    expect(at(cells, 1, y + 1, 50)?.rot).toBe(14); // down-top {-X,-Y}
+    expect(at(cells, 1, y, 50)?.rot).toBe(3); // down-foot    {+X,+Y}
   });
 });

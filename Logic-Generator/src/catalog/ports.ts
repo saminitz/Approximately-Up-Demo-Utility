@@ -201,3 +201,22 @@ export function inputPortRot(op: OpKey, portIndex: number): number {
 export function outputPortRot(op: OpKey, portIndex: number): number {
   return portRot(outputOffset(op, portIndex));
 }
+
+/**
+ * Direction from a port cell toward the block it attaches to, derived from the
+ * offset alone (blocks are 2 wide in X; ports sit just outside). Works for tall
+ * router/remap blocks where a fixed-size footprint scan would miss the block.
+ */
+export function portInto(off: PortOffset): PortFace {
+  if (off.dx <= -1) return "+X";
+  if (off.dx >= 2) return "-X";
+  return off.dz <= -1 ? "+Z" : "-Z";
+}
+
+export function inputPortInto(op: OpKey, portIndex: number): PortFace {
+  return portInto(inputOffset(op, portIndex));
+}
+
+export function outputPortInto(op: OpKey, portIndex: number): PortFace {
+  return portInto(outputOffset(op, portIndex));
+}

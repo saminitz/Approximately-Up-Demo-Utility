@@ -81,6 +81,25 @@ export function cornerRot(dirs: Iterable<Dir3>): number {
   return CORNER_ROT[[...new Set(dirs)].sort().join("|")] ?? 5;
 }
 
+/**
+ * Vertical corner rots for BRIDGE ramps, read from the real in-game bridge
+ * `1b66fd4d… Cable Bridge.bp`. These differ from the isolated vertical corners
+ * in `CORNER_ROT` (All Possible Rotations) — a ramp inside a continuous up/over/
+ * down bridge is a different orientation than a standalone corner. Keys are the
+ * sorted neighbor-direction set of the ramp cell.
+ */
+const BRIDGE_RAMP: Record<string, number> = {
+  // X-travel bridge: {-X,+Y} up-foot, {+X,-Y} up-top, {-X,-Y} down-top, {+X,+Y} down-foot
+  "+Y|-X": 11, "+X|-Y": 2, "-X|-Y": 14, "+X|+Y": 3,
+  // Z-travel bridge: {-Z,+Y} up-foot, {+Z,-Y} up-top, {-Z,-Y} down-top, {+Z,+Y} down-foot
+  "+Y|-Z": 21, "+Z|-Y": 12, "-Y|-Z": 20, "+Y|+Z": 9,
+};
+
+/** `_gt.rot` for a bridge ramp (foot/top) cell by its neighbor-direction set. */
+export function bridgeRampRot(dirs: Iterable<Dir3>): number {
+  return BRIDGE_RAMP[[...new Set(dirs)].sort().join("|")] ?? 0;
+}
+
 /** Elevated straight (bridge span at y+1): X keeps 0, Z is 21 (not ground 16). */
 export const SPAN_ROT = { X: 0, Z: 21 } as const;
 

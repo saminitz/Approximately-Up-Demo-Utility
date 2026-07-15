@@ -14,10 +14,11 @@
 
 import type { Cell } from "./layout";
 import {
+  bridgeRampRot,
   cableMetaFromDirs,
   cornerRot,
-  dirBetween,
   SPAN_ROT,
+  type Dir3,
   type PlaneDir,
 } from "./cableShapes";
 
@@ -47,9 +48,26 @@ export interface RouteResult {
 
 const key = (x: number, z: number) => `${x},${z}`;
 const cellKey = (c: Cell) => `${c.x},${c.y},${c.z}`;
+const key3 = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
 const opposite = (d: PlaneDir): PlaneDir =>
   d === "+X" ? "-X" : d === "-X" ? "+X" : d === "+Z" ? "-Z" : "+Z";
+
+const PLANE_DIRS: ReadonlyArray<readonly [PlaneDir, number, number]> = [
+  ["+X", 1, 0],
+  ["-X", -1, 0],
+  ["+Z", 0, 1],
+  ["-Z", 0, -1],
+];
+
+/** Direction from a port cell toward the block it connects to (the one adjacent
+ * footprint cell), or null if none is adjacent. */
+function intoBlockDir(c: Cell, blocked: Set<string>): PlaneDir | null {
+  for (const [d, dx, dz] of PLANE_DIRS) {
+    if (blocked.has(key(c.x + dx, c.z + dz))) return d;
+  }
+  return null;
+}
 
 type Dir = 0 | 1 | 2 | 3; // +X -X +Z -Z
 const DX = [1, -1, 0, 0];
@@ -133,19 +151,6 @@ function astar(
   return null;
 }
 
-function neighborDirs(path: Cell[], i: number): PlaneDir[] {
-  const dirs: PlaneDir[] = [];
-  if (i > 0) {
-    const d = dirBetween(path[i], path[i - 1]);
-    if (d) dirs.push(d);
-  }
-  if (i < path.length - 1) {
-    const d = dirBetween(path[i], path[i + 1]);
-    if (d) dirs.push(d);
-  }
-  return dirs;
-}
-
 /**
  * Route every edge, avoiding blocks and previously-placed cables, bridging where
  * a crossing is unavoidable. Edges are routed in the given order.
@@ -207,43 +212,87 @@ export function route3DCables(
     }
     flatPaths.set(e.id, path);
     const y = e.start.y;
-    for (let i = 0; i < path.length; i++) {
-      const c = path[i];
-      const crossing = occupied.has(key(c.x, c.z));
-      if (crossing && i > 0 && i < path.length - 1) {
-        // Bridge over this cell: arch across prev..c..next. Each ramp cell's rot
-        // comes from its 3D neighbor set (the verified corner table), so all four
-        // travel directions are handled correctly.
-        const prev = path[i - 1];
-        const next = path[i + 1];
-        const d = dirBetween(prev, c)!; // travel direction across the bridge
-        const back = opposite(d);
-        const axis: "X" | "Z" = d.includes("X") ? "X" : "Z";
-        // prev riser: foot {back, +Y}, top {forward, -Y}
-        push({ ...prev, y, rot: cornerRot([back, "+Y"]), trailing: 1 });
-        push({ ...prev, y: y + 1, rot: cornerRot([d, "-Y"]), trailing: 1 });
-        // span at y+1 (elevated straight)
-        push({ ...c, y: y + 1, rot: SPAN_ROT[axis], trailing: 0 });
-        // next riser: top {back, -Y}, foot {forward, +Y}
-        push({ ...next, y: y + 1, rot: cornerRot([back, "-Y"]), trailing: 1 });
-        push({ ...next, y, rot: cornerRot([d, "+Y"]), trailing: 1 });
-        continue; // do NOT place a y0 cell on the crossed cable's cell
+    const n = path.length;
+
+    // A run of consecutive crossings becomes ONE bridge: rise on the cell before
+    // the run, span the whole run at y+1, descend on the cell after it. A ramp
+    // cell owns both its y0 foot and y+1 top; the span cells own only y+1 (the
+    // crossed cables keep their y0). Ramp rots come from the real bridge table by
+    // 3D neighbor set, so bridge length and direction are dynamic. When a crossing
+    // sits right next to a port (index 1 or n-2) the port cell itself becomes the
+    // riser — its foot connects into the block and up.
+    const role: Array<"flat" | "up" | "span" | "down"> = new Array(n).fill("flat");
+    for (let i = 1; i < n - 1; i++) {
+      if (occupied.has(key(path[i].x, path[i].z))) {
+        role[i] = "span";
+        if (role[i - 1] === "flat") role[i - 1] = "up";
       }
-      // Flat cell: rot from port override (endpoints) or dominant shape table.
+    }
+    for (let i = 1; i < n; i++) {
+      if (role[i] === "flat" && role[i - 1] === "span") role[i] = "down";
+    }
+
+    // Emit this edge's 3D cells with their role, THEN assign each cell's rot from
+    // its actual own-chain 3D neighbor set. A per-edge chain is a simple path, so
+    // every cell has at most two chain-neighbors — the true straight/corner/ramp
+    // topology, not a guess from the assumed travel direction. (The earlier
+    // `fwd`-based ramp rots broke wherever a ramp sat at a turn or a terminal port,
+    // where the real horizontal arm differs from the path's forward step.)
+    type Kind = "flat" | "port" | "span" | "foot" | "top";
+    const entries: Array<{ x: number; y: number; z: number; kind: Kind; isEnd: boolean }> = [];
+    for (let i = 0; i < n; i++) {
+      const c = path[i];
+      const isEnd = i === 0 || i === n - 1;
+      if (role[i] === "span") entries.push({ x: c.x, y: y + 1, z: c.z, kind: "span", isEnd });
+      else if (role[i] === "up" || role[i] === "down") {
+        entries.push({ x: c.x, y, z: c.z, kind: "foot", isEnd });
+        entries.push({ x: c.x, y: y + 1, z: c.z, kind: "top", isEnd });
+      } else entries.push({ x: c.x, y, z: c.z, kind: isEnd ? "port" : "flat", isEnd });
+    }
+    const own = new Set(entries.map((en) => cellKey(en)));
+    const CHAIN_DIRS: ReadonlyArray<readonly [Dir3, number, number, number]> = [
+      ["+X", 1, 0, 0], ["-X", -1, 0, 0], ["+Z", 0, 0, 1], ["-Z", 0, 0, -1],
+      ["+Y", 0, 1, 0], ["-Y", 0, -1, 0],
+    ];
+    for (const en of entries) {
+      const nb: Dir3[] = [];
+      for (const [d, dx, dy, dz] of CHAIN_DIRS)
+        if (own.has(key3(en.x + dx, en.y + dy, en.z + dz))) nb.push(d);
+      const horiz = nb.filter((d) => d !== "+Y" && d !== "-Y") as PlaneDir[];
+      const into = intoBlockDir({ x: en.x, y: en.y, z: en.z }, blocked);
+
       let rot: number;
       let trailing: number;
-      if (i === 0) {
-        rot = e.startRot;
+      if (en.kind === "foot" || en.kind === "top") {
+        // Ramp: one horizontal arm (own-chain, or into the block at a terminal
+        // foot) plus the vertical arm to its foot/top partner. Rot from the real
+        // bridge table by that 3D neighbor set.
+        const vert: Dir3 = en.kind === "foot" ? "+Y" : "-Y";
+        const arm = horiz[0] ?? into;
+        rot = arm ? bridgeRampRot([arm, vert]) : bridgeRampRot(nb);
+        trailing = 1;
+      } else if (en.kind === "span") {
+        const axis: "X" | "Z" = horiz.some((d) => d.includes("X")) ? "X" : "Z";
+        rot = SPAN_ROT[axis];
         trailing = 0;
-      } else if (i === path.length - 1) {
-        rot = e.endRot;
-        trailing = 0;
+      } else if (en.kind === "port") {
+        // Port stub: one cable arm + the block. Corner INTO the block when the
+        // cable turns there, else the verified straight stub (5/0 ground truth).
+        const cableDir = horiz[0] ?? null;
+        const fallback = en === entries[0] ? e.startRot : e.endRot;
+        if (into && cableDir && cableDir !== opposite(into)) {
+          rot = cornerRot([into, cableDir]);
+          trailing = 1;
+        } else {
+          rot = fallback;
+          trailing = 0;
+        }
       } else {
-        const meta = cableMetaFromDirs(neighborDirs(path, i));
+        const meta = cableMetaFromDirs(horiz);
         rot = meta.rot;
         trailing = meta.trailing;
       }
-      push({ ...c, y, rot, trailing });
+      push({ x: en.x, y: en.y, z: en.z, rot, trailing });
     }
     // Register this cable's flat cells as occupied (bridged spans stay at y+1,
     // so the crossed cell remains owned by the earlier cable only).
