@@ -242,18 +242,17 @@ export function route3DCables(
     for (let i = 1; i < n - 1; i++)
       if (occupied.has(key(path[i].x, path[i].z))) role[i] = "span";
     // Descending between two crossings needs a down-ramp AND an up-ramp cell.
-    // A straight gap of ≤2 flat cells leaves no level ground between them
-    // (gap 1 can't even fit both), so the bridge stays at y+1 and spans the
-    // free cells too — their y0 stays empty. The A* ramp checks already
-    // verified y+1 is free on every cell of such a short gap.
+    // A gap of ≤2 flat cells leaves no level ground between them (gap 1 can't
+    // even fit both — it would emit a down-ramp whose foot dangles under the
+    // next span), so the bridge stays at y+1 and spans the free cells too —
+    // their y0 stays empty. Holds through a turn in the gap as well: the arch
+    // just corners at y+1. The A* ramp checks already verified y+1 is free on
+    // every cell of such a short gap.
     for (let i = 1; i < n - 1; i++) {
       if (role[i] !== "flat" || role[i - 1] !== "span") continue;
       let j = i;
       while (j < n - 1 && role[j] === "flat") j++;
-      const run = path.slice(i - 1, j + 1);
-      const straight =
-        run.every((c) => c.x === run[0].x) || run.every((c) => c.z === run[0].z);
-      if (role[j] === "span" && j - i <= 2 && straight)
+      if (role[j] === "span" && j - i <= 2)
         for (let k = i; k < j; k++) role[k] = "span";
       i = j - 1;
     }
@@ -306,9 +305,17 @@ export function route3DCables(
         rot = arm ? bridgeRampRot([arm, vert]) : bridgeRampRot(nb);
         trailing = 1;
       } else if (en.kind === "span") {
-        const axis: "X" | "Z" = horiz.some((d) => d.includes("X")) ? "X" : "Z";
-        rot = SPAN_ROT[axis];
-        trailing = 0;
+        // A gap cell kept at y+1 through a turn is an elevated corner, not a
+        // straight span. Flat corner rots — the arch's own cosmetic frame at
+        // y+1 is unverified for corners, and rot is best-effort anyway.
+        if (horiz.length === 2 && horiz[0].includes("X") !== horiz[1].includes("X")) {
+          rot = cornerRot(horiz);
+          trailing = 1;
+        } else {
+          const axis: "X" | "Z" = horiz.some((d) => d.includes("X")) ? "X" : "Z";
+          rot = SPAN_ROT[axis];
+          trailing = 0;
+        }
       } else if (en.kind === "port") {
         // Port stub: one cable arm + the block. Corner INTO the block when the
         // cable turns there, else the verified straight stub (5/0 ground truth).

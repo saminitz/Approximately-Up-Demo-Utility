@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compileFormula } from "../compiler/compiler";
 import { layoutGraph } from "../layout/layout";
 import { route3DCables, type RouteEdge } from "../layout/cableRoute";
+import { CORNER_ROT } from "../layout/cableShapes";
 import type { Cell } from "../layout/layout";
 
 const yk = (c: { x: number; y: number; z: number }) => `${c.x},${c.y},${c.z}`;
@@ -101,6 +102,29 @@ describe("game-grid cable router", () => {
     // Middle of the gap is back at y0: down-ramp z=1, flat z=2, up-ramp z=3.
     expect(b.some((c) => c.z === 2 && c.y === 24)).toBe(true);
     expect(b.some((c) => c.z === 2 && c.y === 25)).toBe(false);
+  });
+
+  it("stays at y+1 across a 1-cell gap that turns (no dangling down-ramp)", () => {
+    const y = 24;
+    // A is an L: south along x=10 (z=2..-1), then east along z=-1 (x=10..12).
+    // B runs +X down a walled corridor at z=0, bridges A's Z-arm at (10,0), and
+    // one cell later must bridge A's X-arm at (11,-1) — a single gap cell with a
+    // turn in it. Blocks fence the pocket so no detour exists.
+    const blocks: Cell[] = [];
+    for (let x = 0; x <= 9; x++) blocks.push({ x, y, z: 1 }, { x, y, z: -1 });
+    blocks.push({ x: 0, y, z: 0 });
+    blocks.push({ x: 11, y, z: 2 }, { x: 12, y, z: 2 });
+    for (let z = -6; z <= 2; z++) blocks.push({ x: 13, y, z });
+    const { chains, failed } = route3DCables([
+      { id: "A", start: { x: 10, y, z: 2 }, end: { x: 12, y, z: -1 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 5, y, z: 0 }, end: { x: 11, y, z: -4 }, startRot: 0, endRot: 0 },
+    ], blocks);
+    expect(failed).toEqual([]);
+    const b = chains.get("B")!;
+    const gap = b.find((c) => c.x === 11 && c.z === 0);
+    expect(gap?.y).toBe(y + 1); // arch turns at the top, no descent
+    expect(b.some((c) => c.x === 11 && c.z === 0 && c.y === y)).toBe(false);
+    expect(gap?.rot).toBe(CORNER_ROT["-X|-Z"]);
   });
 
   it("never lets one bridge cross another bridge's cells at y+1", () => {
