@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Text, Billboard } from "@react-three/drei";
 import type { BlockNode } from "../compiler/graph";
-import { OPS, type OpCategory } from "../formula/catalog";
+import { OPS, type OpCategory, type OpKey } from "../formula/catalog";
 import {
   footprintForOp,
   inputPortCell,
@@ -59,6 +59,17 @@ const CATEGORY_COLOR: Record<OpCategory, string> = {
   constant: "#94a3b8",
 };
 
+// Top-face glyph, where a recognizable math symbol exists. Ops without one just
+// carry their floating label.
+const SYMBOL: Partial<Record<OpKey, string>> = {
+  add: "+", sub: "−", mul: "×", div: "÷", mod: "%", pow: "xⁿ",
+  min: "min", max: "max", abs: "|x|", sqrt: "√", exp: "eˣ", log: "ln",
+  sin: "sin", cos: "cos", tan: "tan", atan2: "atan2",
+  not: "¬", xor: "⊕", condition: "?",
+  deriv: "d/dt", integ: "∫", memory: "M",
+  threshold: "⎍", constant: "k", input: "▸", output: "◉",
+};
+
 function blockColor(node: BlockNode): string {
   if (node.op === "output") return "#ec4899";
   return CATEGORY_COLOR[OPS[node.op].category];
@@ -95,6 +106,8 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         acc(c.x + w - 1, c.y, c.z + h - 1);
         return {
           id: n.id,
+          label: OPS[n.op].label,
+          symbol: SYMBOL[n.op],
           color: blockColor(n),
           // Box centre = anchor (min corner) + half the footprint − half a cell.
           cx: c.x + (w - 1) / 2,
@@ -165,6 +178,24 @@ export function Circuit3D({ laid }: Circuit3DProps) {
           <boxGeometry args={[b.w, 1, b.h]} />
           <meshStandardMaterial color={b.color} />
         </mesh>
+      ))}
+
+      {blocks.filter((b) => b.symbol).map((b) => (
+        <Text key={`sym-${b.id}`} position={[wx(b.cx), wy(b.cy) + 0.51, wz(b.cz)]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          fontSize={Math.min(b.w, b.h) * 0.6} color="#0e1116"
+          anchorX="center" anchorY="middle">
+          {b.symbol}
+        </Text>
+      ))}
+
+      {blocks.map((b) => (
+        <Billboard key={`lbl-${b.id}`} position={[wx(b.cx), wy(b.cy) + 0.8, wz(b.cz)]}>
+          <Text fontSize={0.35} color="#e6edf3" anchorX="center" anchorY="bottom"
+            outlineWidth={0.02} outlineColor="#0e1116">
+            {b.label}
+          </Text>
+        </Billboard>
       ))}
 
       {ports.map((p, i) => (
