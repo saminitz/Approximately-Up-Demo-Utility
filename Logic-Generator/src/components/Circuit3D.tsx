@@ -222,7 +222,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
             <meshStandardMaterial color={b.color} />
           </mesh>
           {b.symbol && (
-            <Text position={[0, 0.51, 0]} rotation={[-Math.PI / 2, 0, 0]}
+            <Text position={[0, 0.51, 0]} rotation={[-Math.PI / 2, 0, Math.PI]}
               fontSize={Math.min(b.w, b.h) * 0.6} color="#0e1116"
               anchorX="center" anchorY="middle">
               {b.symbol}

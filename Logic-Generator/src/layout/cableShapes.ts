@@ -63,10 +63,24 @@ const BLOCK_STUB: CableMeta = { rot: 12, trailing: 0, type: DEFAULT_CABLE_TYPE }
 export type Dir3 = PlaneDir | "+Y" | "-Y";
 
 /**
- * Every corner orientation, verified from `19192c81… Cable All Possible
- * Rotations.bp`: one rot per L-turn keyed by the sorted neighbor-direction set.
- * Flat corners (both arms horizontal) plus vertical corners (one arm ±Y, the
- * horizontal↔up/down transitions inside a bridge). All corners have trailing 1.
+ * One rot per L-turn, keyed by the sorted neighbor-direction set. Flat corners
+ * (both arms horizontal) plus vertical corners (one arm ±Y).
+ *
+ * FLAT: measured — `807f5ee1… Generated Calib All cable rotations.bp` vs the
+ * hand-built `0d6fbbde… Actual All cable Rotations.bp` agree on all four (the
+ * game built `+Z|-X` as 18, this table's twin of 5 — same shape, other face).
+ * These four are the only entries {@link cornerRot} is ever asked for; a
+ * vertical corner routes through {@link bridgeRampRot} instead. Pinned by
+ * `cableRot.test.ts`.
+ *
+ * VERTICAL: UNVERIFIED. The same diff disagrees on six of the eight, and no
+ * rigid orientation of the L reconciles them (the hand-built row contains all
+ * 12 shapes, but six sit on the wrong cell — two 3-cycles). Either the viewer's
+ * vertical arms are drawn wrong or an isolated cable can't be hand-built with a
+ * down/Z arm. Unused by the router, so left as-is pending a cleaner fixture.
+ *
+ * All corners are trailing 1, which the hand-built file confirms: the game
+ * wrote trailing 1 for every one of the 12 bent cables.
  */
 export const CORNER_ROT: Record<string, number> = {
   // flat
