@@ -32,6 +32,19 @@ thrust = clamp0 + Kp * error - damp
 clamp0 = 0.5`,
   },
   {
+    name: "Hover hold (any ship, any planet)",
+    src: `// Hover hold from one up-facing Accelerometer. No mass, no thrust
+// rating, no gravity, no ground distance. Closed loop is
+//   s^2 + a*Kp*s + a*Ki = 0   with  a = maxThrust/mass > 0
+// so it is stable for ANY a: the Ki accumulator learns the hover
+// throttle on its own. Tune Kp/Ki for damping, not for stability.
+// vTarget = 0 to hold, > 0 to climb at a fixed rate.
+vUp   = integral(aUp)
+vErr  = vTarget - vUp
+cmd   = Kp*vErr + Ki*integral(vErr)
+throt = min(1, max(0, cmd))`,
+  },
+  {
     name: "Vector magnitude",
     src: `speed = sqrt(vx*vx + vy*vy + vz*vz)`,
   },

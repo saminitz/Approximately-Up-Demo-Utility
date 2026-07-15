@@ -97,6 +97,21 @@ describe("compiler", () => {
     expect(() => compileFormula("a = b + 1\nb = a + 1")).toThrow(/[Cc]yclic/);
   });
 
+  it("compiles the hover-hold example with no mass/thrust/gravity input", () => {
+    const g = compileFormula(
+      "vUp   = integral(aUp)\n" +
+        "vErr  = vTarget - vUp\n" +
+        "cmd   = Kp*vErr + Ki*integral(vErr)\n" +
+        "throt = min(1, max(0, cmd))",
+    );
+    // Only the sensor, the setpoint and the two gains are wired in. If mass,
+    // maxThrust or gravity ever show up here the loop stopped being portable.
+    expect(g.inputs).toEqual(["Ki", "Kp", "aUp", "vTarget"]);
+    expect(g.outputs).toEqual(["throt"]);
+    // Two accumulators: velocity from accel, and the one that learns hover throttle.
+    expect(count(g.nodes.map((n) => n.op), "integ")).toBe(2);
+  });
+
   it("produces a valid edge set (all endpoints exist)", () => {
     const g = compileFormula("u = Kp*(t - p) + Kd*deriv(t - p)");
     const ids = new Set(g.nodes.map((n) => n.id));

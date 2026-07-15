@@ -1,7 +1,7 @@
 {
   "name": "logic-generator",
   "private": true,
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "description": "Compile a formula into an Approximately Up in-game logic blueprint (.bp/.bpmeta ZIP) with a live circuit visualization.",
   "scripts": {
