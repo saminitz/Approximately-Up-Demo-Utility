@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DIR_TO_SCENE, sceneQuat, toScene } from "../gameFrame";
-import { ROTATIONS, type Quaternion } from "../serializer/rotations";
+import { ROTATIONS, gameQuat, type Quaternion } from "../serializer/rotations";
 
 type V = [number, number, number];
 
@@ -25,11 +25,13 @@ describe("game frame (viewer transpose)", () => {
   });
 
   // The load-bearing identity: drawing with sceneQuat must equal transposing the
-  // model-rotated geometry. Get the reflection wrong and every block mirrors.
-  it("sceneQuat(rot) matches the transpose of the model rotation, for all 24 rots", () => {
+  // game-rotated geometry. Get the reflection wrong and every block mirrors.
+  // `gameQuat`, not raw ROTATIONS — the measured local-yaw fix rides along (see
+  // rotationFix.test.ts, which pins that half against the in-game blueprints).
+  it("sceneQuat(rot) matches the transpose of the game rotation, for all 24 rots", () => {
     for (let rot = 0; rot < ROTATIONS.length; rot++) {
       for (const v of [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 2, 3]] as V[]) {
-        const viaModel = toScene(...rotate(ROTATIONS[rot], v));
+        const viaModel = toScene(...rotate(gameQuat(rot), v));
         const viaScene = rotate(sceneQuat(rot)!, toScene(...v));
         viaScene.forEach((n, i) => expect(n).toBeCloseTo(viaModel[i], 5));
       }

@@ -38,6 +38,47 @@ export const ROTATIONS: readonly Quaternion[] = [
 /** Index of the identity quaternion inside ROTATIONS. */
 export const ROT_IDENTITY = 16;
 
+/** Hamilton product, (x, y, z, w) order. */
+function mulQuat(a: Quaternion, b: Quaternion): Quaternion {
+  return [
+    a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+    a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+    a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+    a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+  ];
+}
+
+/**
+ * MEASURED correction between `ROTATIONS[i]` and the orientation the game really
+ * renders for `_gt.rot = i`.
+ *
+ * Ground truth: the pair `75a8487b… Generated Calib All block rotations.bp` (24
+ * adders written at rot 0..23) and `d4fcd73f… Actual All block rotations.bp` (the
+ * same 24 orientations rebuilt by hand in-game). Diffing them by cell gives a
+ * bijection generated→actual — and every one of the 24 entries is the SAME fixed
+ * local yaw, so this is one constant rather than a lookup table:
+ *
+ *   ROTATIONS[actual] = ROTATIONS[generated] ⊗ ROT_LOCAL_FIX
+ *
+ * i.e. the game's mesh frame sits a local +90° about Y from this table's. The
+ * table itself is still the verbatim DLL array — the offset is in what the mesh
+ * does with it, so the fix is applied on read via {@link gameQuat}, not by
+ * permuting ground truth.
+ */
+export const ROT_LOCAL_FIX: Quaternion = [0, S, 0, S]; // +90° about +Y, local
+
+/** Inverse of {@link ROT_LOCAL_FIX}. */
+const ROT_LOCAL_FIX_INV: Quaternion = [0, -S, 0, S];
+
+/**
+ * The orientation the game actually renders for `_gt.rot = rot` — i.e. what a
+ * viewer must draw. This is the corrected read of {@link ROTATIONS}; see
+ * {@link ROT_LOCAL_FIX}.
+ */
+export function gameQuat(rot: number): Quaternion {
+  return mulQuat(ROTATIONS[rot] ?? ROTATIONS[ROT_IDENTITY], ROT_LOCAL_FIX_INV);
+}
+
 /**
  * Reference upright rotation from GT_REPORT_v2.md §5 (PD Target Distance record 0):
  * `_gt=0x332030D8` → rot=6 (`(0, -√½, 0, √½)`, −90° about +Y).

@@ -8,7 +8,7 @@
 // ponytail: rename `_gt` x/z to their game meaning only if the confusion outlives
 // this file — that is a wide, purely cosmetic diff through layout + router.
 
-import { ROTATIONS, type Quaternion } from "./serializer/rotations";
+import { gameQuat, type Quaternion } from "./serializer/rotations";
 
 export type Vec3Tuple = [number, number, number];
 
@@ -23,12 +23,17 @@ export const DIR_TO_SCENE = {
 } as const;
 
 /**
- * `_gt.rot` as a scene quaternion. Swapping X and Z is a REFLECTION (det −1), so
- * a model rotation R appears in the scene as M·R·M⁻¹ = the same rotation about the
- * swapped axis with the angle NEGATED. For q = (x, y, z, w) that is (−z, −y, −x, w)
- * — skip it and every block reads mirrored.
+ * `_gt.rot` as a scene quaternion — what the game really shows for that rot,
+ * drawn in the transposed view frame.
+ *
+ * Two corrections stack here:
+ *  1. `gameQuat` applies the measured local-yaw fix to the raw DLL table.
+ *  2. Swapping X and Z is a REFLECTION (det −1), so a model rotation R appears in
+ *     the scene as M·R·M⁻¹ = the same rotation about the swapped axis with the
+ *     angle NEGATED. For q = (x, y, z, w) that is (−z, −y, −x, w).
  */
 export function sceneQuat(rot: number | undefined): Quaternion | undefined {
-  const q = rot === undefined ? undefined : ROTATIONS[rot];
-  return q && [-q[2], -q[1], -q[0], q[3]];
+  if (rot === undefined) return undefined;
+  const q = gameQuat(rot);
+  return [-q[2], -q[1], -q[0], q[3]];
 }
