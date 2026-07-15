@@ -128,26 +128,19 @@
 .canvas-wrap {
   position: relative;
   overflow: hidden;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  background:
-    radial-gradient(circle at 1px 1px, #1b222c 1px, transparent 0) 0 0 / 22px 22px,
-    var(--bg);
+  background: var(--bg);
 }
-/* The view holds the circuit and is pan/zoomed via a transform set inline.
-   Absolute + transform-origin 0 0 so translate maps 1:1 to pixels. */
+/* The view fills the pane; the 3D Canvas inside renders at 100% and OrbitControls
+   handles pan/zoom. The toolbar floats over the top. */
 .canvas-view {
+  position: absolute;
+  inset: 0;
+}
+.canvas-toolbar {
   position: absolute;
   top: 0;
   left: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-.canvas-toolbar {
-  position: sticky;
-  top: 0;
-  left: 0;
+  right: 0;
   z-index: 5;
   display: flex;
   gap: 8px;

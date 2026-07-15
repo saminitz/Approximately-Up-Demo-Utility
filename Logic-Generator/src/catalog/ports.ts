@@ -152,6 +152,19 @@ export function topologyForOp(op: OpKey): PortTopology {
   }
 }
 
+/**
+ * Block footprint on the X-Z plane, derived from the ground-truth port geometry
+ * (port-map.json). Every block is 2 wide in X; its Z-height is 2 or 4 depending
+ * on whether any real port reaches beyond the near half (binary/unary span 2,
+ * routers/remap span 4). Fed to collision (layout.ts) and the 3D render.
+ */
+export function footprintForOp(op: OpKey): { w: number; h: number } {
+  const t = topologyForOp(op);
+  const dz = [...t.inputs, ...t.outputs].map((p) => p.dz);
+  const span = dz.length ? Math.max(...dz) - Math.min(...dz) + 1 : 1;
+  return { w: 2, h: span > 2 ? 4 : 2 };
+}
+
 export function portCell(
   anchor: { x: number; y: number; z: number },
   offset: PortOffset,

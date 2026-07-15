@@ -31,6 +31,10 @@ export interface RouteEdge {
   /** Verified `_gt.rot` for the first cable cell at each port (5 west / 0 east). */
   startRot: number;
   endRot: number;
+  /** Direction from the port cell into its block, from the port offset. Needed
+   * for tall router/remap blocks whose body isn't found by a footprint scan. */
+  startInto?: PlaneDir;
+  endInto?: PlaneDir;
 }
 
 export interface RoutedCableCell extends Cell {
@@ -259,7 +263,10 @@ export function route3DCables(
       for (const [d, dx, dy, dz] of CHAIN_DIRS)
         if (own.has(key3(en.x + dx, en.y + dy, en.z + dz))) nb.push(d);
       const horiz = nb.filter((d) => d !== "+Y" && d !== "-Y") as PlaneDir[];
-      const into = intoBlockDir({ x: en.x, y: en.y, z: en.z }, blocked);
+      // Endpoints know their block side from the port offset (reliable even for
+      // tall routers); interior/fallback uses the footprint adjacency scan.
+      const edgeInto = en.isEnd ? (en === entries[0] ? e.startInto : e.endInto) : undefined;
+      const into = edgeInto ?? intoBlockDir({ x: en.x, y: en.y, z: en.z }, blocked);
 
       let rot: number;
       let trailing: number;

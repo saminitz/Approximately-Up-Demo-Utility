@@ -108,7 +108,7 @@ describe("placement fixes (rotation + interior offset)", () => {
 
 
 
-    expect(INTERIOR_BASE_CELL).toEqual({ x: 200, y: 24, z: 192 });
+    expect(INTERIOR_BASE_CELL).toEqual({ x: 200, y: 24, z: 200 });
 
   });
 

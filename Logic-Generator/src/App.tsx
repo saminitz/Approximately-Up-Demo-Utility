@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
-import { CircuitCanvas } from "./components/CircuitCanvas";
+import { Circuit3D } from "./components/Circuit3D";
 import { runPipeline } from "./pipeline";
 import { OPS } from "./formula/catalog";
 import {
@@ -32,6 +32,33 @@ clamp0 = 0.5`,
     name: "Vector magnitude",
     src: `speed = sqrt(vx*vx + vy*vy + vz*vz)`,
   },
+  {
+    name: "6-DOF stabilizer (complex)",
+    src: `// Heavy mix: arithmetic, trig, stateful, logic, shaping. No sqrt block.
+altError  = targetAlt - altitude
+altRate   = deriv(altitude)
+altInteg  = integral(altError)
+altPID    = Kp*altError + Ki*altInteg - Kd*altRate
+
+tiltMag   = abs(pitch) + abs(roll)
+tilt      = atan2(pitch, roll)
+gyroMix   = gx*gx + gy*gy + gz*gz
+spin      = pow(gyroMix, 0.5)          // root without the sqrt block
+damp      = tanh(spin) * max(tiltMag, 0.001)
+
+heading   = atan2(yaw, tilt)
+wrap      = mod(heading, 6.2831853)
+osc       = sin(wrap) * cos(altRate) + tan(min(damp, 1.5))
+
+gate      = xor(threshold(altError, 0.0), not(condition(spin, spinLimit)))
+gated     = condition(gate, altPID)
+
+shaped    = remap(gated, -10, 10, -1, 1)
+memHold   = memory(shaped)
+expTerm   = exp(-abs(shaped)) + log(1 + tiltMag)
+
+thrust    = memHold + osc*0.25 - damp*0.1 + expTerm`,
+  },
 ];
 
 const LEGEND: { label: string; color: string }[] = [
@@ -50,86 +77,9 @@ export default function App() {
   const [name, setName] = useState("My Logic");
   const [folder, setFolder] = useState("80 Controllers");
   const [emitCables, setEmitCables] = useState(true);
-  // One state for the whole view transform so zoom+pan update atomically.
-  const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   const [lastExport, setLastExport] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ x: number; y: number } | null>(null);
 
   const result = useMemo(() => runPipeline(src), [src]);
-
-  // Center the circuit in the pane at the given zoom. Uses the SVG's natural
-  // viewBox size (zoom-independent) so it doesn't depend on the current render.
-  const recenter = (zoom = view.zoom) => {
-    const wrap = wrapRef.current;
-    const svg = viewRef.current?.querySelector("svg");
-    if (!wrap || !svg) return;
-    const nw = svg.viewBox.baseVal.width;
-    const nh = svg.viewBox.baseVal.height;
-    setView({
-      zoom,
-      x: (wrap.clientWidth - nw * zoom) / 2,
-      y: (wrap.clientHeight - nh * zoom) / 2,
-    });
-  };
-
-  // Zoom toward a screen point (px relative to the pane), keeping it pinned.
-  const zoomAround = (nz: number, px: number, py: number) =>
-    setView((v) => ({
-      zoom: nz,
-      x: px - ((px - v.x) * nz) / v.zoom,
-      y: py - ((py - v.y) * nz) / v.zoom,
-    }));
-
-  const zoomToCenter = (nz: number) => {
-    const wrap = wrapRef.current;
-    if (wrap) zoomAround(nz, wrap.clientWidth / 2, wrap.clientHeight / 2);
-  };
-
-  // Recenter whenever the circuit changes (new formula → new size).
-  useEffect(() => {
-    recenter(view.zoom);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result]);
-
-  // Ctrl/Cmd + scroll zooms around the cursor; plain scroll is left alone.
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      setView((v) => {
-        const nz = Math.min(2.5, Math.max(0.3, +(v.zoom * Math.exp(-e.deltaY * 0.001)).toFixed(3)));
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
-        return { zoom: nz, x: px - ((px - v.x) * nz) / v.zoom, y: py - ((py - v.y) * nz) / v.zoom };
-      });
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  // Left-click drag pans the view; the circuit data is untouched.
-  const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest(".canvas-toolbar")) return;
-    dragRef.current = { x: e.clientX, y: e.clientY };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.currentTarget.style.cursor = "grabbing";
-  };
-  const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.x;
-    const dy = e.clientY - dragRef.current.y;
-    dragRef.current = { x: e.clientX, y: e.clientY };
-    setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
-  };
-  const onPointerUp = (e: React.PointerEvent<HTMLElement>) => {
-    dragRef.current = null;
-    e.currentTarget.style.cursor = "grab";
-  };
 
   const onExport = () => {
     if (!result.ok) return;
@@ -220,14 +170,7 @@ export default function App() {
         </p>
       </aside>
 
-      <section
-        className="canvas-wrap"
-        ref={wrapRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
+      <section className="canvas-wrap">
         <div className="canvas-toolbar">
           <div className="legend">
             {LEGEND.map((l) => (
@@ -237,18 +180,11 @@ export default function App() {
             ))}
           </div>
           <div className="spacer" />
-          <button onClick={() => zoomToCenter(Math.max(0.3, +(view.zoom - 0.1).toFixed(2)))}>−</button>
-          <span style={{ width: 44, textAlign: "center" }}>{Math.round(view.zoom * 100)}%</span>
-          <button onClick={() => zoomToCenter(Math.min(2.5, +(view.zoom + 0.1).toFixed(2)))}>+</button>
-          <button onClick={() => recenter(1)}>Reset</button>
+          <span className="footnote">drag to orbit · scroll to zoom · right-drag to pan</span>
         </div>
-        <div
-          className="canvas-view"
-          ref={viewRef}
-          style={{ transform: `translate(${view.x}px, ${view.y}px)` }}
-        >
+        <div className="canvas-view">
           {result.ok ? (
-            <CircuitCanvas laid={result.laid} zoom={view.zoom} />
+            <Circuit3D laid={result.laid} />
           ) : (
             <div className="empty">Fix the formula to see the circuit.</div>
           )}

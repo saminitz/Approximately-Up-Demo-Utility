@@ -3,10 +3,14 @@ import { compileFormula } from "../compiler/compiler";
 import {
   PORT_BY_OP,
   PORT_MAP_STATS,
+  footprintForOp,
   inputPortCell,
+  inputPortInto,
   inputPortRot,
   outputPortCell,
+  outputPortInto,
   outputPortRot,
+  portInto,
   topologyForOp,
 } from "../catalog/ports";
 import { layoutGraph } from "../layout/layout";
@@ -24,6 +28,17 @@ describe("port map (Block List cable markers)", () => {
       { face: "-X", dx: -1, dz: 0, chainLen: 1, cableRot: 5 },
       { face: "-X", dx: -1, dz: 1, chainLen: 1, cableRot: 5 },
     ]);
+  });
+
+  it("portInto: block side from the offset (works for tall routers)", () => {
+    expect(portInto({ face: "-X", dx: -1, dz: 0 })).toBe("+X"); // west port -> block east
+    expect(portInto({ face: "+X", dx: 2, dz: 3 })).toBe("-X"); // east port (router row 3)
+    expect(portInto({ face: "+Z", dx: 0, dz: -1 })).toBe("+Z"); // near-Z port
+    expect(portInto({ face: "-Z", dx: 1, dz: 4 })).toBe("-Z"); // far-Z port
+    // router4 outputs are all on the east face regardless of Z row.
+    expect(outputPortInto("router4", 0)).toBe("-X");
+    expect(outputPortInto("router4", 3)).toBe("-X");
+    expect(inputPortInto("router4", 0)).toBe("+X");
   });
 
   it("maps unary ops: input -X dz+1, output +X dz+1", () => {
@@ -80,6 +95,13 @@ describe("port map (Block List cable markers)", () => {
       (c) => c.x === inCell.x && c.z === inCell.z,
     );
     expect(cable?.rot).toBe(5); // -X input stub (west)
+  });
+
+  it("derives footprint from port span: binary/unary 2×2, routers/remap 2×4", () => {
+    expect(footprintForOp("add")).toEqual({ w: 2, h: 2 });
+    expect(footprintForOp("not")).toEqual({ w: 2, h: 2 });
+    expect(footprintForOp("router4").h).toBe(4);
+    expect(footprintForOp("remap").h).toBe(4);
   });
 
   it("exposes router4 with four +X outputs", () => {

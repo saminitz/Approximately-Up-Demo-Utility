@@ -1,5 +1,13 @@
 import type { BlockGraph, BlockNode } from "../compiler/graph";
-import { inputPortCell, inputPortRot, outputPortCell, outputPortRot } from "../catalog/ports";
+import {
+  footprintForOp,
+  inputPortCell,
+  inputPortInto,
+  inputPortRot,
+  outputPortCell,
+  outputPortInto,
+  outputPortRot,
+} from "../catalog/ports";
 import type { CableCell } from "./cableShapes";
 import { route3DCables, type RouteEdge } from "./cableRoute";
 
@@ -46,19 +54,12 @@ export interface LayoutOptions {
  * Signal blocks in PD Target Distance spread on X and Z with Y held near 24
  * (the horizontal circuit plane). We anchor at the low corner of that cluster.
  */
-export const INTERIOR_BASE_CELL = { x: 200, y: 24, z: 192 } as const;
-
-/** 2×2 block footprint offsets (dx, dz) from the anchor (min corner). */
-const FOOTPRINT_2X2: ReadonlyArray<readonly [number, number]> = [
-  [0, 0],
-  [1, 0],
-  [0, 1],
-  [1, 1],
-];
+export const INTERIOR_BASE_CELL = { x: 200, y: 24, z: 200 } as const;
 
 export const DEFAULT_LAYOUT: LayoutOptions = {
   colStep: 6,
-  rowStep: 4,
+  // Clears a 4-tall block plus a cable channel between rows.
+  rowStep: 6,
   originX: INTERIOR_BASE_CELL.x,
   originY: INTERIOR_BASE_CELL.y,
   originZ: INTERIOR_BASE_CELL.z,
@@ -160,18 +161,26 @@ export function layoutGraph(
       end: { ...end, y: opts.originY },
       startRot: outputPortRot(from.op, e.from.port),
       endRot: inputPortRot(to.op, e.to.port),
+      startInto: outputPortInto(from.op, e.from.port),
+      endInto: inputPortInto(to.op, e.to.port),
     };
   });
 
-  // Blocks occupy a 2×2 footprint (anchor is the min corner); the router must
-  // treat every footprint cell as an obstacle, not just the anchor.
-  // ponytail: 2×2 covers all arithmetic/io/sensor blocks. The "2 size" router/
-  // remap blocks are 2×4 — widen their footprint once a 2×4 size demo confirms it.
-  const blockCells = graph.nodes.flatMap((n) =>
-    n.cell
-      ? FOOTPRINT_2X2.map(([dx, dz]) => ({ x: n.cell!.x + dx, y: n.cell!.y, z: n.cell!.z + dz }))
-      : [],
-  );
+  // Blocks occupy a per-op footprint (2×2 or 2×4), anchor at the min corner; the
+  // router treats every footprint cell as an obstacle. Size is derived from the
+  // real port geometry (footprintForOp). Port-stub rotation on tall router/remap
+  // blocks is handled separately via the per-edge `into` (from the port offset).
+  // ponytail: footprint is axis-aligned (no block rotation). If a future
+  // placement path ever sets node rotation, swap w/h here by that rot.
+  const blockCells = graph.nodes.flatMap((n) => {
+    if (!n.cell) return [];
+    const { w, h } = footprintForOp(n.op);
+    const cells: Cell[] = [];
+    for (let dx = 0; dx < w; dx++)
+      for (let dz = 0; dz < h; dz++)
+        cells.push({ x: n.cell.x + dx, y: n.cell.y, z: n.cell.z + dz });
+    return cells;
+  });
   const { cells: cableCells, flatPaths } = route3DCables(routeEdges, blockCells);
 
   const routes: CableRoute[] = graph.edges.map((e) => ({
