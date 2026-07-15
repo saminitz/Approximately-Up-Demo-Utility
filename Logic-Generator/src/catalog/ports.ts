@@ -56,26 +56,12 @@ function topologyFromPorts(ports: PortMapEntry[]): PortTopology {
   return { inputs: pick("input"), outputs: pick("output") };
 }
 
-function enrichTopology(op: OpKey, topo: PortTopology): PortTopology {
-  const inputs = [...topo.inputs];
-  const outputs = [...topo.outputs];
-
-  if (op === "remap") {
-    const base = inputs[0] ?? { face: "+Z" as PortFace, dx: 2, dz: 3, chainLen: 1 };
-    for (let i = inputs.length; i < 5; i++) {
-      inputs.push({ ...base, dz: base.dz + (i - inputs.length) });
-    }
-  }
-
-  return { inputs, outputs };
-}
-
 /** Lookup by OpKey from Block List rows that map to formula ops. */
 export const PORT_BY_OP: Partial<Record<OpKey, PortTopology>> = (() => {
   const m: Partial<Record<OpKey, PortTopology>> = {};
   for (const b of portMap.blocks) {
     if (!b.opKey) continue;
-    m[b.opKey] = enrichTopology(b.opKey, topologyFromPorts(b.ports));
+    m[b.opKey] = topologyFromPorts(b.ports);
   }
   m.output = m.input;
   return m;

@@ -76,10 +76,11 @@ export interface OpSpec {
   /** Function name(s) usable in a formula, if any. */
   fnNames?: string[];
   /**
-   * Trailing call argument stored inside the block (`_value`) instead of being
-   * wired to a port — must be a numeric literal. Same deal as a Constant block.
+   * Trailing call arguments stored in the block's own fields instead of being
+   * wired to ports — each must be a numeric literal, same deal as a Constant
+   * block. Names are `FIELD_HASH` keys (prefabTable.ts), in call-arg order.
    */
-  param?: string;
+  params?: string[];
   /** How the parser may spell it: as an infix operator, a call, or neither. */
   syntax: "infix" | "call" | "internal";
 }
@@ -121,8 +122,8 @@ export const OPS: Record<OpKey, OpSpec> = {
   integ: { key: "integ", label: "Accumulator", category: "stateful", inputs: ["x"], outputs: ["∫"], fnNames: ["integ", "integral"], syntax: "call" },
   memory: { key: "memory", label: "Memory", category: "stateful", inputs: ["x"], outputs: ["out"], fnNames: ["memory"], syntax: "call" },
 
-  remap: { key: "remap", label: "Remapper", category: "shaping", inputs: ["x", "inMin", "inMax", "outMin", "outMax"], outputs: ["out"], fnNames: ["remap"], syntax: "call" },
-  threshold: { key: "threshold", label: "Simple Threshold", category: "shaping", inputs: ["x"], outputs: ["out"], fnNames: ["threshold"], param: "t", syntax: "call" },
+  remap: { key: "remap", label: "Remapper", category: "shaping", inputs: ["x"], outputs: ["out"], fnNames: ["remap"], params: ["inMin", "inMax", "outMin", "outMax"], syntax: "call" },
+  threshold: { key: "threshold", label: "Simple Threshold", category: "shaping", inputs: ["x"], outputs: ["out"], fnNames: ["threshold"], params: ["value"], syntax: "call" },
 
   constant: { key: "constant", label: "Constant", category: "constant", inputs: [], outputs: ["out"], syntax: "internal" },
   input: { key: "input", label: "Input", category: "io", inputs: [], outputs: ["out"], syntax: "internal" },

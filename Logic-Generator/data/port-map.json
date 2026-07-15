@@ -650,9 +650,9 @@
         }
       ],
       "validation": {
-        "expectedInputs": 5,
+        "expectedInputs": 1,
         "expectedOutputs": 1,
-        "matches": false
+        "matches": true
       }
     },
     {

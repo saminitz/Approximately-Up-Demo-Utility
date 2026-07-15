@@ -165,7 +165,7 @@ class Parser {
       );
     }
     const spec = OPS[opKey];
-    const arity = spec.inputs.length + (spec.param ? 1 : 0);
+    const arity = spec.inputs.length + (spec.params?.length ?? 0);
     if (args.length !== arity) {
       throw new FormulaError(`'${name}' expects ${arity} argument(s) but got ${args.length}.`, pos);
     }

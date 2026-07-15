@@ -184,6 +184,28 @@ describe("serializer", () => {
 
 
 
+  it("writes the remapper's four bounds into its own fields", () => {
+    // Field order pinned off the Block List remapper, whose knobs read 12/13/21/22.
+    const laid = layoutGraph(compileFormula("y = remap(x, -10, 10, -1, 1)"));
+    const { bytes } = buildBp(laid, { emitCables: false, rot: ROT_LOGIC });
+    const header = getReferenceHeader();
+    const struct = header.structs[PREFAB_TABLE.remap.structIndex];
+    expect(struct.sizeof).toBe(40);
+
+    const remap = laid.nodes.findIndex((n) => n.op === "remap");
+    expect(remap).toBeGreaterThanOrEqual(0);
+    // Records are fixed-size per struct, so walk to the remapper's record.
+    let off = header.byteLength;
+    for (let i = 0; i < remap; i++) {
+      off += 12 + header.structs[PREFAB_TABLE[laid.nodes[i].op].structIndex].sizeof + 4;
+    }
+    const data = off + 12;
+    expect(dvFloat(bytes, data + 0x18)).toBeCloseTo(-10); // inMin
+    expect(dvFloat(bytes, data + 0x1c)).toBeCloseTo(10); // inMax
+    expect(dvFloat(bytes, data + 0x20)).toBeCloseTo(-1); // outMin
+    expect(dvFloat(bytes, data + 0x24)).toBeCloseTo(1); // outMax
+  });
+
   it("writes a valid .bpmeta JSON sidecar", () => {
 
     const meta = buildBpMeta({ name: "PD", folder: "80 Controllers" });

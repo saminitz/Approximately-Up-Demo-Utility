@@ -9,6 +9,8 @@ export interface BlockNode {
   outputs: string[]; // output port labels
   /** For `constant` blocks: the literal value. */
   value?: number;
+  /** Literals stored in the block's own fields, aligned to `OpSpec.params`. */
+  params?: number[];
   /** For `input`/`output` terminals: the named signal. */
   signalName?: string;
   /** Layout result (grid cells), filled by the layout engine. */

@@ -13,6 +13,12 @@ export const FIELD_HASH = {
   value: 0xa5251abf2c8bd1b8n,
   /** Wireless transmitter channel (idx 10, schema offset 20 → disk +24). */
   channel: 0xd4fd95402fe51781n,
+  // Remapper knobs (idx 20, schema offsets 20/24/28/32). Order read off the
+  // Block List remapper record, whose floats are 12 / 13 / 21 / 22.
+  inMin: 0x10001eaa5178d813n,
+  inMax: 0x0f3c11a219c458een,
+  outMin: 0xd8c91dcd007e9964n,
+  outMax: 0xfbbd9b86081987d9n,
 } as const;
 
 export const STRUCT_IDX = {

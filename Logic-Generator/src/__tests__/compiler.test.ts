@@ -15,7 +15,7 @@ describe("compiler", () => {
     const g = compileFormula("y = threshold(x, 4.321)");
     const t = g.nodes.filter((n) => n.op === "threshold");
     expect(t).toHaveLength(1);
-    expect(t[0].value).toBe(4.321);
+    expect(t[0].params).toEqual([4.321]);
     expect(t[0].inputs).toHaveLength(1);
     expect(count(g.nodes.map((n) => n.op), "constant")).toBe(0);
     expect(g.edges.filter((e) => e.to.blockId === t[0].id)).toHaveLength(1);
@@ -23,6 +23,20 @@ describe("compiler", () => {
 
   it("rejects a non-literal threshold level", () => {
     expect(() => compileFormula("y = threshold(x, k)")).toThrow(/literal number/);
+  });
+
+  it("stores the remapper's four bounds in the block", () => {
+    const g = compileFormula("y = remap(x, -10, 10, -1, 1)");
+    const r = g.nodes.filter((n) => n.op === "remap");
+    expect(r).toHaveLength(1);
+    expect(r[0].params).toEqual([-10, 10, -1, 1]);
+    expect(r[0].inputs).toHaveLength(1);
+    expect(count(g.nodes.map((n) => n.op), "constant")).toBe(0);
+    expect(g.edges.filter((e) => e.to.blockId === r[0].id)).toHaveLength(1);
+  });
+
+  it("rejects a non-literal remapper bound", () => {
+    expect(() => compileFormula("y = remap(x, -10, 10, -1, k)")).toThrow(/outMax/);
   });
 
   it("creates input and output terminal blocks", () => {

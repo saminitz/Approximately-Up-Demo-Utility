@@ -152,27 +152,26 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
       case "call": {
         const op = FN_TO_OP[expr.name];
         const spec = OPS[op];
-        let args = expr.args;
-        let param: number | undefined;
-        if (spec.param) {
-          // Trailing arg lives in the block's own `_value` field, not on a port.
-          const last = args[args.length - 1];
-          if (last.type !== "number") {
+        // Trailing args live in the block's own fields, not on ports.
+        const args = expr.args.slice(0, spec.inputs.length);
+        const params = expr.args.slice(spec.inputs.length).map((a, i) => {
+          const v = literalValue(a);
+          if (v === undefined) {
             throw new FormulaError(
-              `'${expr.name}' argument '${spec.param}' is stored in the block and must be a literal number.`,
+              `'${expr.name}' argument '${spec.params![i]}' is set on the block itself and must be a literal number.`,
               expr.pos,
             );
           }
-          param = last.value;
-          args = args.slice(0, -1);
-        }
+          return v;
+        });
         const loweredArgs = args.map(lowerExpr);
-        const sigParts = loweredArgs.map((a) => a.sig);
-        if (param !== undefined) sigParts.push(`k:${param}`);
-        const sig = signature(op, sigParts);
+        const sig = signature(op, [
+          ...loweredArgs.map((a) => a.sig),
+          ...params.map((p) => `k:${p}`),
+        ]);
         const hit = cse.get(sig);
         if (hit) return { id: hit, sig };
-        const id = makeOpNode(op, param);
+        const id = makeOpNode(op, params);
         loweredArgs.forEach((a, i) => connect(a.id, 0, id, i));
         cse.set(sig, id);
         return { id, sig };
@@ -180,14 +179,16 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
     }
   };
 
-  const makeOpNode = (op: OpKey, value?: number): string => {
+  const makeOpNode = (op: OpKey, params: number[] = []): string => {
     const spec = OPS[op];
     return addNode({
       op,
-      label: value === undefined ? spec.label : `${spec.label} ${formatConst(value)}`,
+      label: params.length
+        ? `${spec.label} (${params.map(formatConst).join(", ")})`
+        : spec.label,
       inputs: [...spec.inputs],
       outputs: [...spec.outputs],
-      value,
+      params: params.length ? params : undefined,
     });
   };
 
@@ -224,6 +225,16 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
   insertRouters(nodes, edges, addNode, connect);
 
   return { nodes, edges, inputs, outputs };
+}
+
+/** Numeric value of a literal, seeing through a leading sign (`-10`). */
+function literalValue(expr: Expr): number | undefined {
+  if (expr.type === "number") return expr.value;
+  if (expr.type === "unary") {
+    const v = literalValue(expr.operand);
+    if (v !== undefined) return expr.op === "-" ? -v : v;
+  }
+  return undefined;
 }
 
 function collectRefs(expr: Expr, out: Set<string>): void {

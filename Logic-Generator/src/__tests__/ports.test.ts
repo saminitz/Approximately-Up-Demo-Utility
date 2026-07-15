@@ -59,9 +59,9 @@ describe("port map (Block List cable markers)", () => {
     expect(t.outputs).toHaveLength(1);
   });
 
-  it("fills remap to five input offsets", () => {
+  it("gives remap one input — the four bounds are set on the block", () => {
     const r = topologyForOp("remap");
-    expect(r.inputs).toHaveLength(5);
+    expect(r.inputs).toHaveLength(1);
     expect(r.outputs).toHaveLength(1);
   });
 

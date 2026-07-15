@@ -9,6 +9,8 @@
 // The header is reused verbatim from a real reference blueprint (byte-exact for
 // this game version), so only the payload records are synthesized here.
 
+import type { BlockNode } from "../compiler/graph";
+import { OPS } from "../formula/catalog";
 import type { LaidOutGraph } from "../layout/layout";
 import { BinaryWriter } from "./binaryWriter";
 import { packGt } from "./gtCodec";
@@ -95,6 +97,20 @@ function writeU8(dv: DataView, off: number, structSize: number, value: number): 
   dv.setUint8(off, value & 0xff);
 }
 
+/**
+ * Knob values a block carries in its own fields: a Constant's `_value`, plus the
+ * literals the formula set on the block (Simple Threshold, Remapper).
+ */
+function blockValues(node: BlockNode): Record<string, number> {
+  const values: Record<string, number> = {};
+  if (node.value !== undefined) values.value = node.value;
+  OPS[node.op].params?.forEach((name, i) => {
+    const v = node.params?.[i];
+    if (v !== undefined) values[name] = v;
+  });
+  return values;
+}
+
 /** Write a single fixed-layout payload record into `w`. */
 function writeRecord(
   w: BinaryWriter,
@@ -103,7 +119,8 @@ function writeRecord(
   fields: {
     entityId: EntityId;
     gt: number;
-    value?: number;
+    /** Block knobs by FIELD_HASH name; ones the struct lacks are dropped. */
+    values?: Record<string, number>;
     col?: number;
     channel?: number;
   },
@@ -115,9 +132,10 @@ function writeRecord(
   writeEntityId(dv, fields.entityId);
   writeU32(dv, GT_DATA_OFFSET, struct.sizeof, fields.gt);
 
-  if (fields.value !== undefined) {
-    const vOff = adjustedFieldOffset(struct, FIELD_HASH.value);
-    if (vOff !== null) writeF32(dv, vOff, struct.sizeof, fields.value);
+  for (const [name, v] of Object.entries(fields.values ?? {})) {
+    const hash = FIELD_HASH[name as keyof typeof FIELD_HASH];
+    const off = hash === undefined ? null : adjustedFieldOffset(struct, hash);
+    if (off !== null) writeF32(dv, off, struct.sizeof, v);
   }
   if (fields.channel !== undefined) {
     const chOff = adjustedFieldOffset(struct, FIELD_HASH.channel);
@@ -163,9 +181,7 @@ export function buildBp(
     writeRecord(w, struct, entry.hash, {
       entityId: entityId(),
       gt,
-      // Constant and Simple Threshold both carry their number in `_value`;
-      // writeRecord drops it for structs without the field.
-      value: node.value,
+      values: blockValues(node),
       channel: isWireless ? WIRELESS_DEFAULT_CHANNEL : undefined,
       col: 0,
     });
