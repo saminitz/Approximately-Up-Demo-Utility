@@ -151,11 +151,28 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
       }
       case "call": {
         const op = FN_TO_OP[expr.name];
-        const loweredArgs = expr.args.map(lowerExpr);
-        const sig = signature(op, loweredArgs.map((a) => a.sig));
+        const spec = OPS[op];
+        let args = expr.args;
+        let param: number | undefined;
+        if (spec.param) {
+          // Trailing arg lives in the block's own `_value` field, not on a port.
+          const last = args[args.length - 1];
+          if (last.type !== "number") {
+            throw new FormulaError(
+              `'${expr.name}' argument '${spec.param}' is stored in the block and must be a literal number.`,
+              expr.pos,
+            );
+          }
+          param = last.value;
+          args = args.slice(0, -1);
+        }
+        const loweredArgs = args.map(lowerExpr);
+        const sigParts = loweredArgs.map((a) => a.sig);
+        if (param !== undefined) sigParts.push(`k:${param}`);
+        const sig = signature(op, sigParts);
         const hit = cse.get(sig);
         if (hit) return { id: hit, sig };
-        const id = makeOpNode(op);
+        const id = makeOpNode(op, param);
         loweredArgs.forEach((a, i) => connect(a.id, 0, id, i));
         cse.set(sig, id);
         return { id, sig };
@@ -163,13 +180,14 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
     }
   };
 
-  const makeOpNode = (op: OpKey): string => {
+  const makeOpNode = (op: OpKey, value?: number): string => {
     const spec = OPS[op];
     return addNode({
       op,
-      label: spec.label,
+      label: value === undefined ? spec.label : `${spec.label} ${formatConst(value)}`,
       inputs: [...spec.inputs],
       outputs: [...spec.outputs],
+      value,
     });
   };
 

@@ -163,7 +163,9 @@ export function buildBp(
     writeRecord(w, struct, entry.hash, {
       entityId: entityId(),
       gt,
-      value: node.op === "constant" ? node.value ?? 0 : undefined,
+      // Constant and Simple Threshold both carry their number in `_value`;
+      // writeRecord drops it for structs without the field.
+      value: node.value,
       channel: isWireless ? WIRELESS_DEFAULT_CHANNEL : undefined,
       col: 0,
     });

@@ -165,11 +165,9 @@ class Parser {
       );
     }
     const spec = OPS[opKey];
-    if (args.length !== spec.inputs.length) {
-      throw new FormulaError(
-        `'${name}' expects ${spec.inputs.length} argument(s) but got ${args.length}.`,
-        pos,
-      );
+    const arity = spec.inputs.length + (spec.param ? 1 : 0);
+    if (args.length !== arity) {
+      throw new FormulaError(`'${name}' expects ${arity} argument(s) but got ${args.length}.`, pos);
     }
     return { type: "call", name, args, pos };
   }

@@ -53,9 +53,9 @@ describe("port map (Block List cable markers)", () => {
     expect(mem.outputs[0]).toMatchObject({ face: "+X", dx: 2, dz: 1, chainLen: 2 });
   });
 
-  it("fills threshold second input from catalog", () => {
+  it("gives threshold one input — the level lives in the block's _value", () => {
     const t = topologyForOp("threshold");
-    expect(t.inputs).toHaveLength(2);
+    expect(t.inputs).toHaveLength(1);
     expect(t.outputs).toHaveLength(1);
   });
 

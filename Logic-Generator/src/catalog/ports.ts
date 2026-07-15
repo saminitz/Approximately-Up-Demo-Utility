@@ -60,10 +60,6 @@ function enrichTopology(op: OpKey, topo: PortTopology): PortTopology {
   const inputs = [...topo.inputs];
   const outputs = [...topo.outputs];
 
-  if (op === "threshold" && inputs.length === 1 && outputs.length === 1) {
-    inputs.push({ face: "+X", dx: 2, dz: 1, chainLen: 1 });
-  }
-
   if (op === "remap") {
     const base = inputs[0] ?? { face: "+Z" as PortFace, dx: 2, dz: 3, chainLen: 1 };
     for (let i = inputs.length; i < 5; i++) {

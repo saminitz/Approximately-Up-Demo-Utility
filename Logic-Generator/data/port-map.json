@@ -560,9 +560,9 @@
         }
       ],
       "validation": {
-        "expectedInputs": 2,
+        "expectedInputs": 1,
         "expectedOutputs": 1,
-        "matches": false
+        "matches": true
       }
     },
     {

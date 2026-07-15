@@ -75,6 +75,11 @@ export interface OpSpec {
   outputs: string[];
   /** Function name(s) usable in a formula, if any. */
   fnNames?: string[];
+  /**
+   * Trailing call argument stored inside the block (`_value`) instead of being
+   * wired to a port — must be a numeric literal. Same deal as a Constant block.
+   */
+  param?: string;
   /** How the parser may spell it: as an infix operator, a call, or neither. */
   syntax: "infix" | "call" | "internal";
 }
@@ -117,7 +122,7 @@ export const OPS: Record<OpKey, OpSpec> = {
   memory: { key: "memory", label: "Memory", category: "stateful", inputs: ["x"], outputs: ["out"], fnNames: ["memory"], syntax: "call" },
 
   remap: { key: "remap", label: "Remapper", category: "shaping", inputs: ["x", "inMin", "inMax", "outMin", "outMax"], outputs: ["out"], fnNames: ["remap"], syntax: "call" },
-  threshold: { key: "threshold", label: "Simple Threshold", category: "shaping", inputs: ["x", "t"], outputs: ["out"], fnNames: ["threshold"], syntax: "call" },
+  threshold: { key: "threshold", label: "Simple Threshold", category: "shaping", inputs: ["x"], outputs: ["out"], fnNames: ["threshold"], param: "t", syntax: "call" },
 
   constant: { key: "constant", label: "Constant", category: "constant", inputs: [], outputs: ["out"], syntax: "internal" },
   input: { key: "input", label: "Input", category: "io", inputs: [], outputs: ["out"], syntax: "internal" },

@@ -11,6 +11,20 @@ describe("compiler", () => {
     expect(g.outputs).toEqual(["control"]);
   });
 
+  it("stores the threshold level in the block, not a wired constant", () => {
+    const g = compileFormula("y = threshold(x, 4.321)");
+    const t = g.nodes.filter((n) => n.op === "threshold");
+    expect(t).toHaveLength(1);
+    expect(t[0].value).toBe(4.321);
+    expect(t[0].inputs).toHaveLength(1);
+    expect(count(g.nodes.map((n) => n.op), "constant")).toBe(0);
+    expect(g.edges.filter((e) => e.to.blockId === t[0].id)).toHaveLength(1);
+  });
+
+  it("rejects a non-literal threshold level", () => {
+    expect(() => compileFormula("y = threshold(x, k)")).toThrow(/literal number/);
+  });
+
   it("creates input and output terminal blocks", () => {
     const g = compileFormula("y = a + b");
     const inputs = g.nodes.filter((n) => n.op === "input").map((n) => n.signalName);
