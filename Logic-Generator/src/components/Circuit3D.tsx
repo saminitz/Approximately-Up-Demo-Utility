@@ -11,15 +11,7 @@ import {
   outputPortInto,
 } from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
-import { ROTATIONS, type Quaternion } from "../serializer/rotations";
-
-// `_gt.rot` as a three quaternion. ROTATIONS entries are already (x,y,z,w) in the
-// game's frame, which maps 1:1 to the scene's (game Y up = three Y up).
-// ponytail: assumes no extra basis flip between game and three. The rotation
-// fixture exists precisely to catch it if there is one.
-function rotQuat(rot: number | undefined): Quaternion | undefined {
-  return rot === undefined ? undefined : ROTATIONS[rot] ?? undefined;
-}
+import { DIR_TO_SCENE, sceneQuat as rotQuat, toScene, type Vec3Tuple } from "../gameFrame";
 
 // A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
 // centre toward each neighbour it links to (within its own edge chain, so parallel
@@ -121,7 +113,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         // block's `_gt.rot` carries them along — a port is part of the block.
         const local = (p: Vec3, out: boolean) => {
           acc(p.x, p.y, p.z);
-          return { pos: [p.x - cx, p.y - cy + 0.55, p.z - cz] as [number, number, number], out };
+          return { pos: toScene(p.x - cx, p.y - cy + 0.55, p.z - cz), out };
         };
         const ports = [
           ...n.inputs.map((_, i) => local(inputPortCell(n.op, c, i), false)),
@@ -163,7 +155,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
           .map(([d]) => d);
         if (idx === 0 && startInto) dirs.push(startInto);
         if (idx === last && endInto) dirs.push(endInto);
-        cables.push({ x: c.x, y: c.y, z: c.z, dirs });
+        cables.push({ x: c.x, y: c.y, z: c.z, dirs: dirs.map((d) => DIR_TO_SCENE[d]) });
       });
     }
 
@@ -184,10 +176,10 @@ export function Circuit3D({ laid }: Circuit3DProps) {
     return { center, radius, blocks, cables, loose };
   }, [laid]);
 
-  // World = game cell − centroid. Game Y (up) maps straight to three's Y-up.
-  const wx = (x: number) => x - center.x;
+  // World = (model cell − centroid), transposed into the game's frame.
+  const world = (x: number, y: number, z: number): Vec3Tuple =>
+    toScene(x - center.x, y - center.y, z - center.z);
   const wy = (y: number) => y - center.y;
-  const wz = (z: number) => z - center.z;
 
   const dist = radius * 1.6;
 
@@ -201,12 +193,27 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       <directionalLight position={[dist, dist * 2, dist]} intensity={0.8} />
       <gridHelper args={[radius * 3, Math.ceil(radius * 3), "#30363d", "#21262d"]} position={[0, wy(laid.nodes[0]?.cell?.y ?? 0) - 0.5, 0]} />
 
+      {/* Game axes at the scene centre: red +X, green +Y, blue +Z — the same axes
+          the "Axis markers" fixture spells out with block values. */}
+      <group>
+        <axesHelper args={[3]} />
+        {(["+X", "+Y", "+Z"] as const).map((label, i) => (
+          <Billboard key={label} position={[i === 0 ? 3.4 : 0, i === 1 ? 3.4 : 0, i === 2 ? 3.4 : 0]}>
+            <Text fontSize={0.4} color={["#ff6b6b", "#51cf66", "#4b93f8"][i]}
+              anchorX="center" anchorY="middle">
+              {label}
+            </Text>
+          </Billboard>
+        ))}
+      </group>
+
       {/* Body + top glyph share one group, so an explicit `_gt.rot` (calibration
           fixtures) turns the glyph with the block and the angle stays readable. */}
       {blocks.map((b) => (
-        <group key={b.id} position={[wx(b.cx), wy(b.cy), wz(b.cz)]} quaternion={b.quat}>
+        <group key={b.id} position={world(b.cx, b.cy, b.cz)} quaternion={b.quat}>
           <mesh>
-            <boxGeometry args={[b.w, 1, b.h]} />
+            {/* Footprint w is along model X = scene Z, h along model Z = scene X. */}
+            <boxGeometry args={[b.h, 1, b.w]} />
             <meshStandardMaterial color={b.color} />
           </mesh>
           {b.symbol && (
@@ -226,7 +233,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       ))}
 
       {blocks.map((b) => (
-        <Billboard key={`lbl-${b.id}`} position={[wx(b.cx), wy(b.cy) + 0.8, wz(b.cz)]}>
+        <Billboard key={`lbl-${b.id}`} position={world(b.cx, b.cy + 0.8, b.cz)}>
           <Text fontSize={0.35} color="#e6edf3" anchorX="center" anchorY="bottom"
             outlineWidth={0.02} outlineColor="#0e1116">
             {b.label}
@@ -237,7 +244,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       {/* Each cell = a centre node + one flat arm per linked direction (straight,
           L-bend, tee, or bridge ramp — the cable's real geometry). */}
       {cables.map((c, i) => (
-        <group key={i} position={[wx(c.x), wy(c.y), wz(c.z)]}>
+        <group key={i} position={world(c.x, c.y, c.z)}>
           <mesh>
             <boxGeometry args={[WIDE, FLAT, WIDE]} />
             <meshStandardMaterial color={CABLE_COLOR} />
@@ -251,17 +258,19 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         </group>
       ))}
 
-      {/* Bare cable cells (calibration fixture): a straight-X bar with a +Y tick
-          for chirality, spun by ROTATIONS[rot], labelled with rot/trailing. */}
+      {/* Bare cable cells (calibration fixture): the straight-model-X bar (rot 0 in
+          the cableShapes table) with a +Y tick for chirality, spun by ROTATIONS[rot],
+          labelled with rot/trailing. Geometry is written in the scene frame, so the
+          bar lies along scene Z — model X. */}
       {loose.map((c, i) => (
-        <group key={`loose-${i}`} position={[wx(c.x), wy(c.y), wz(c.z)]}>
+        <group key={`loose-${i}`} position={world(c.x, c.y, c.z)}>
           <group quaternion={rotQuat(c.rot)}>
             <mesh>
-              <boxGeometry args={[ARM * 2, FLAT, WIDE]} />
+              <boxGeometry args={[WIDE, FLAT, ARM * 2]} />
               <meshStandardMaterial color={CABLE_COLOR} />
             </mesh>
-            <mesh position={[ARM * 0.7, 0.15, 0]}>
-              <boxGeometry args={[FLAT, 0.3, WIDE]} />
+            <mesh position={[0, 0.15, ARM * 0.7]}>
+              <boxGeometry args={[WIDE, 0.3, FLAT]} />
               <meshStandardMaterial color="#f59e0b" />
             </mesh>
           </group>
