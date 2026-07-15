@@ -2,12 +2,9 @@ import { zipSync } from "fflate";
 import type { LaidOutGraph } from "../layout/layout";
 import { buildBp, DEFAULT_BP_OPTIONS, type BpBuildResult } from "./bpWriter";
 import { buildBpMeta, type BpMeta } from "./bpmeta";
-import { buildBpex } from "./bpex";
 import { ROT_LOGIC } from "./rotations";
 
 export interface ExportOptions extends BpMeta {
-  /** Include the 192 KiB .bpex sidecar (default true). */
-  includeBpex?: boolean;
   /** Emit provisional cable-cell records (default true). */
   emitCables?: boolean;
   /** Explicit blueprint UUID (otherwise generated). */
@@ -51,9 +48,6 @@ export function exportBlueprintZip(
     [`${uuid}.bp`]: build.bytes,
     [`${uuid}.bpmeta`]: meta,
   };
-  if (opts.includeBpex ?? true) {
-    files[`${uuid}.bpex`] = buildBpex();
-  }
 
   const zip = zipSync(files, { level: 6 });
   return {

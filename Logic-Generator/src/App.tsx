@@ -50,7 +50,6 @@ export default function App() {
   const [name, setName] = useState("My Logic");
   const [folder, setFolder] = useState("80 Controllers");
   const [emitCables, setEmitCables] = useState(true);
-  const [includeBpex, setIncludeBpex] = useState(true);
   // One state for the whole view transform so zoom+pan update atomically.
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   const [lastExport, setLastExport] = useState<string | null>(null);
@@ -138,7 +137,6 @@ export default function App() {
       name,
       folder,
       emitCables,
-      includeBpex,
     });
     downloadBytes(res.zip, res.zipName);
     setLastExport(
@@ -205,10 +203,6 @@ export default function App() {
             <label>
               <input type="checkbox" checked={emitCables} onChange={(e) => setEmitCables(e.target.checked)} />
               Emit cable cells (provisional)
-            </label>
-            <label>
-              <input type="checkbox" checked={includeBpex} onChange={(e) => setIncludeBpex(e.target.checked)} />
-              Include .bpex sidecar (192 KiB)
             </label>
           </div>
           <div className="actions">
