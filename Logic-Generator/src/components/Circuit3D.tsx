@@ -3,7 +3,13 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { BlockNode } from "../compiler/graph";
 import { OPS, type OpCategory } from "../formula/catalog";
-import { footprintForOp, inputPortCell, outputPortCell } from "../catalog/ports";
+import {
+  footprintForOp,
+  inputPortCell,
+  inputPortInto,
+  outputPortCell,
+  outputPortInto,
+} from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
 
 // A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
@@ -106,16 +112,29 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       n.outputs.forEach((_, i) => ports.push({ ...outputPortCell(n.op, n.cell!, i), out: true }));
     }
 
-    // Per cell: the directions it links to within its own edge chain.
+    // Per cell: arms toward every neighbour in its own edge chain, PLUS an arm
+    // into the block at each chain endpoint (the port's "into" direction) — so a
+    // cable that connects into an output reads differently from one running past.
+    const byId = new Map(laid.nodes.map((n) => [n.id, n]));
+    const edgeById = new Map(laid.edges.map((e) => [e.id, e]));
     const cables: Array<Vec3 & { dirs: Dir[] }> = [];
     for (const chain of laid.cableChains) {
+      if (chain.cells.length === 0) continue;
       const set = new Set(chain.cells.map((c) => cellKey(c.x, c.y, c.z)));
-      for (const c of chain.cells) {
+      const edge = edgeById.get(chain.edgeId);
+      const from = edge && byId.get(edge.from.blockId);
+      const to = edge && byId.get(edge.to.blockId);
+      const startInto = from ? outputPortInto(from.op, edge!.from.port) : undefined;
+      const endInto = to ? inputPortInto(to.op, edge!.to.port) : undefined;
+      const last = chain.cells.length - 1;
+      chain.cells.forEach((c, idx) => {
         acc(c.x, c.y, c.z);
         const dirs = DIRS.filter(([, dx, dy, dz]) => set.has(cellKey(c.x + dx, c.y + dy, c.z + dz)))
           .map(([d]) => d);
+        if (idx === 0 && startInto) dirs.push(startInto);
+        if (idx === last && endInto) dirs.push(endInto);
         cables.push({ x: c.x, y: c.y, z: c.z, dirs });
-      }
+      });
     }
 
     if (!Number.isFinite(minX)) { minX = maxX = minY = maxY = minZ = maxZ = 0; }
@@ -151,7 +170,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       {ports.map((p, i) => (
         <mesh key={i} position={[wx(p.x), wy(p.y) + 0.55, wz(p.z)]}>
           <sphereGeometry args={[0.18, 8, 8]} />
-          <meshStandardMaterial color={p.out ? "#e6edf3" : "#8b98a5"} />
+          <meshStandardMaterial color={p.out ? "#1a01f8" : "#fffd10"} />
         </mesh>
       ))}
 
