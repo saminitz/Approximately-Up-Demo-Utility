@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import "./App.css";
 import { Circuit3D } from "./components/Circuit3D";
-import { runPipeline } from "./pipeline";
+import type { PipelineResult } from "./pipeline";
+import { usePipeline } from "./usePipeline";
 import { OPS } from "./formula/catalog";
 import {
   downloadBytes,
@@ -87,8 +88,8 @@ export default function App() {
   // pipeline keeps running underneath, untouched.
   const [fixture, setFixture] = useState<{ name: string; laid: LaidOutGraph } | null>(null);
 
-  const result = useMemo(() => runPipeline(src), [src]);
-  const shown = fixture ? fixture.laid : result.ok ? result.laid : null;
+  const { result, running } = usePipeline(src);
+  const shown = fixture ? fixture.laid : result?.ok ? result.laid : null;
 
   const doExport = (laid: LaidOutGraph, bpName: string, cables: boolean) => {
     const res = exportBlueprintZip(laid, { name: bpName, folder, emitCables: cables });
@@ -100,7 +101,7 @@ export default function App() {
   };
 
   const onExport = () => {
-    if (result.ok) doExport(result.laid, name, emitCables);
+    if (result?.ok) doExport(result.laid, name, emitCables);
   };
 
   return (
@@ -131,9 +132,9 @@ export default function App() {
           </div>
         </div>
 
-        <Diagnostics result={result} />
+        <Diagnostics result={result} running={running} />
 
-        {result.ok && (
+        {result?.ok && (
           <div className="section">
             <label className="title">Circuit</label>
             <div className="stats">
@@ -164,7 +165,7 @@ export default function App() {
             </label>
           </div>
           <div className="actions">
-            <button className="primary" onClick={onExport} disabled={!result.ok}>
+            <button className="primary" onClick={onExport} disabled={!result?.ok || running}>
               Download blueprint ZIP
             </button>
           </div>
@@ -236,8 +237,9 @@ export default function App() {
           {shown ? (
             <Circuit3D laid={shown} />
           ) : (
-            <div className="empty">Fix the formula to see the circuit.</div>
+            !running && <div className="empty">Fix the formula to see the circuit.</div>
           )}
+          {running && !fixture && <div className="spinner" title="Refreshing circuit" />}
         </div>
       </section>
     </div>
@@ -253,7 +255,15 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function Diagnostics({ result }: { result: ReturnType<typeof runPipeline> }) {
+function Diagnostics({
+  result,
+  running,
+}: {
+  result: PipelineResult | null;
+  running: boolean;
+}) {
+  if (running) return <div className="diag">Compiling…</div>;
+  if (!result) return null;
   if (!result.ok) {
     return (
       <div className="diag error">

@@ -6,7 +6,7 @@ game-importable blueprint bundle (`.bp` + `.bpmeta`) as a downloadable
 ZIP.
 
 - **Stack:** React + Vite + TypeScript, npm.
-- **Version:** `0.1.8` (bump on every change — see `package.json`).
+- **Version:** `0.1.9` (bump on every change — see `package.json`).
 
 ```
 Formula ──► lexer ──► parser (AST) ──► compiler (block graph, CSE) ──►
@@ -60,7 +60,7 @@ clear error message.
 ```
 Logic-Generator/
 ├─ index.html
-├─ package.json            # version 0.1.8
+├─ package.json            # version 0.1.9
 ├─ vite.config.ts          # vite + vitest config
 ├─ tsconfig*.json
 ├─ scripts/
@@ -149,6 +149,14 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
    AssetRipper prefab inspection — still empirical, not a closed-form formula.
 
 ## Changelog
+
+### 0.1.9
+
+- **Pipeline:** runs in a Web Worker (`pipeline.worker.ts`), off the main thread.
+  Edits are debounced 400 ms; a new run terminates any in-flight worker. The last
+  good circuit stays on screen until the new one lands.
+- **UI:** spinner over the 3D view while a run is in flight; export disabled until it
+  finishes.
 
 ### 0.1.8
 
