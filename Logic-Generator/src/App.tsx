@@ -74,6 +74,9 @@ const LEGEND: { label: string; color: string }[] = [
   { label: "constant", color: "#94a3b8" },
 ];
 
+// `?debug` or `#debug` — hash form also works from file:// static builds.
+const DEBUG = /(^|[?&#])debug(&|=|$)/.test(location.search + location.hash);
+
 export default function App() {
   const [src, setSrc] = useState(EXAMPLES[0].src);
   const [name, setName] = useState("My Logic");
@@ -168,6 +171,7 @@ export default function App() {
           {lastExport && <p className="footnote">{lastExport}</p>}
         </div>
 
+        {DEBUG && (
         <div className="section">
           <label className="title">Calibration blueprints</label>
           <div className="actions" style={{ flexWrap: "wrap" }}>
@@ -205,6 +209,7 @@ export default function App() {
             <code>3</code> = +Z — each 4 cells out from the origin block.
           </p>
         </div>
+        )}
 
         <p className="footnote">
           Blueprint schema header taken verbatim from a real v{BLUEPRINT_GAME_VERSION}{" "}
