@@ -97,6 +97,7 @@ function astar(
   end: Cell,
   blocked: Set<string>,
   occupied: Map<string, "X" | "Z">,
+  bridged: Set<string>,
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
   opts: AStarOpts,
 ): Cell[] | null {
@@ -144,8 +145,12 @@ function astar(
       if (occAxis !== undefined && !isEnd) {
         // May only cross perpendicular to the existing cable, moving straight.
         if (occAxis === axisOfDir(nd)) continue; // parallel overlap forbidden
+        // y+1 must be free for our span here and for the up-ramp we'd need on cur.
+        if (bridged.has(nk) || bridged.has(key(cur.x, cur.z))) continue;
         stepCost += opts.bridgeCost;
       }
+      // Leaving a crossing run: nk is our down-ramp, so its y+1 must be free too.
+      if (onOccupied && occAxis === undefined && bridged.has(nk)) continue;
       if (cur.d !== 4 && cur.d !== nd) stepCost += opts.turnCost;
       const tentative = cg + stepCost;
       const nkey = idx(nx, nz, nd);
@@ -173,6 +178,9 @@ export function route3DCables(
 
   // Occupied cable cells -> axis the cable runs there (for perpendicular-crossing test).
   const occupied = new Map<string, "X" | "Z">();
+  // (x,z) whose y+1 level is taken by an earlier bridge (span or ramp top). A
+  // second arch may not cross or ramp there — it must detour.
+  const bridged = new Set<string>();
   const emitted = new Set<string>(); // 3D cell keys already emitted (dedupe shared ports)
   const out: RoutedCableCell[] = [];
   const flatPaths = new Map<string, Cell[]>();
@@ -214,7 +222,7 @@ export function route3DCables(
     for (const p of allPorts) reserved.add(p);
     reserved.delete(key(e.start.x, e.start.z));
     reserved.delete(key(e.end.x, e.end.z));
-    const path = astar(e.start, e.end, reserved, occupied, bounds, opts);
+    const path = astar(e.start, e.end, reserved, occupied, bridged, bounds, opts);
     if (!path) {
       failed.push(e.id);
       continue;
@@ -231,14 +239,27 @@ export function route3DCables(
     // sits right next to a port (index 1 or n-2) the port cell itself becomes the
     // riser — its foot connects into the block and up.
     const role: Array<"flat" | "up" | "span" | "down"> = new Array(n).fill("flat");
+    for (let i = 1; i < n - 1; i++)
+      if (occupied.has(key(path[i].x, path[i].z))) role[i] = "span";
+    // Descending between two crossings needs a down-ramp AND an up-ramp cell.
+    // A straight gap of ≤2 flat cells leaves no level ground between them
+    // (gap 1 can't even fit both), so the bridge stays at y+1 and spans the
+    // free cells too — their y0 stays empty. The A* ramp checks already
+    // verified y+1 is free on every cell of such a short gap.
     for (let i = 1; i < n - 1; i++) {
-      if (occupied.has(key(path[i].x, path[i].z))) {
-        role[i] = "span";
-        if (role[i - 1] === "flat") role[i - 1] = "up";
-      }
+      if (role[i] !== "flat" || role[i - 1] !== "span") continue;
+      let j = i;
+      while (j < n - 1 && role[j] === "flat") j++;
+      const run = path.slice(i - 1, j + 1);
+      const straight =
+        run.every((c) => c.x === run[0].x) || run.every((c) => c.z === run[0].z);
+      if (role[j] === "span" && j - i <= 2 && straight)
+        for (let k = i; k < j; k++) role[k] = "span";
+      i = j - 1;
     }
     for (let i = 1; i < n; i++) {
-      if (role[i] === "flat" && role[i - 1] === "span") role[i] = "down";
+      if (role[i] === "span" && role[i - 1] === "flat") role[i - 1] = "up";
+      else if (role[i] === "flat" && role[i - 1] === "span") role[i] = "down";
     }
 
     // Emit this edge's 3D cells with their role, THEN assign each cell's rot from
@@ -310,11 +331,13 @@ export function route3DCables(
       chain.push(rc);
     }
     chains.set(e.id, chain);
-    // Register this cable's flat cells as occupied (bridged spans stay at y+1,
-    // so the crossed cell remains owned by the earlier cable only).
+    for (const en of entries) if (en.y > y) bridged.add(key(en.x, en.z));
+    // Register this cable's flat cells as occupied (bridged spans stay at y+1;
+    // crossed cells keep their owner's axis, and spanned-over gap cells have
+    // no y0 presence at all — another cable may pass beneath).
     for (let i = 0; i < path.length; i++) {
       const c = path[i];
-      if (occupied.has(key(c.x, c.z))) continue; // crossed cell keeps its owner's axis
+      if (role[i] === "span" || occupied.has(key(c.x, c.z))) continue;
       const a = i > 0 ? path[i - 1] : path[i + 1];
       const b = i < path.length - 1 ? path[i + 1] : path[i - 1];
       const axis: "X" | "Z" = (a && a.z === c.z) || (b && b.z === c.z) ? "X" : "Z";

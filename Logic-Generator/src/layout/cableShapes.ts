@@ -1,4 +1,5 @@
 import type { Cell } from "./layout";
+import { gameQuat, rotateVec, type Vec3 } from "../serializer/rotations";
 
 /** Cardinal directions on the controller circuit plane (constant Y). */
 export type PlaneDir = "+X" | "-X" | "+Z" | "-Z";
@@ -79,6 +80,39 @@ export const CORNER_ROT: Record<string, number> = {
 /** `_gt.rot` for a corner cell given its two neighbor directions (any axis). */
 export function cornerRot(dirs: Iterable<Dir3>): number {
   return CORNER_ROT[[...new Set(dirs)].sort().join("|")] ?? 5;
+}
+
+const DIR_VEC: Record<Dir3, Vec3> = {
+  "+X": [1, 0, 0], "-X": [-1, 0, 0],
+  "+Y": [0, 1, 0], "-Y": [0, -1, 0],
+  "+Z": [0, 0, 1], "-Z": [0, 0, -1],
+};
+
+/**
+ * The cable mesh is an L, and in its LOCAL frame its two arms point +X and +Y.
+ * Solved from `CORNER_ROT` (rot 0 = arms +X|+Z in world) and cross-checked: it
+ * reproduces all 12 verified entries exactly. See `cableShapes.test.ts`.
+ */
+const LOCAL_ARMS: readonly Vec3[] = [DIR_VEC["+X"], DIR_VEC["+Y"]];
+
+function nearestDir(v: Vec3): Dir3 {
+  const axes: Dir3[][] = [["+X", "-X"], ["+Y", "-Y"], ["+Z", "-Z"]];
+  const i = v.reduce((best, _, j) => (Math.abs(v[j]) > Math.abs(v[best]) ? j : best), 0);
+  return axes[i][v[i] > 0 ? 0 : 1];
+}
+
+/**
+ * Which two directions a cable cell's arms point for a given `_gt.rot` — the
+ * inverse of {@link cornerRot}, and what a viewer needs to draw the real mesh.
+ *
+ * The L is symmetric under the 180° flip that swaps its arms, so the 24 rots
+ * collapse 2:1 onto 12 direction sets: each L has a twin rot that differs only
+ * by which face is up, which nothing observable depends on. `CORNER_ROT` picks
+ * one rot per set; the twin is never generated.
+ */
+export function cableDirsForRot(rot: number): Dir3[] {
+  const q = gameQuat(rot);
+  return LOCAL_ARMS.map((v) => nearestDir(rotateVec(q, v)));
 }
 
 /**

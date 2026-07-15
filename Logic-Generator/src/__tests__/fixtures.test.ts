@@ -12,6 +12,7 @@ import { PREFAB_TABLE } from "../serializer/prefabTable";
 import { packGt } from "../serializer/gtCodec";
 import type { BlockNode } from "../compiler/graph";
 import { ROTATIONS } from "../serializer/rotations";
+import { CORNER_ROT, cableDirsForRot } from "../layout/cableShapes";
 
 const key = (c: { x: number; y: number; z: number }) => `${c.x},${c.y},${c.z}`;
 const items = (laid: { nodes: BlockNode[] }) =>
@@ -52,13 +53,25 @@ describe("calibration fixtures", () => {
     expect(byValue.get(3)).toEqual({ x: 0, y: 0, z: 4 });
   });
 
-  it("cable fixture covers every rot at both trailing values", () => {
+  it("cable fixture covers every distinct L exactly once, twin rots dropped", () => {
     const cells = fixtureAllCableRots().cableCells;
-    expect(cells.length).toBe(ROTATIONS.length * 2);
+    const dirKeys = cells.map((c) => cableDirsForRot(c.rot).sort().join("|"));
+    expect(new Set(dirKeys).size).toBe(cells.length); // no two cells the same L
+    expect(new Set(dirKeys)).toEqual(new Set(Object.keys(CORNER_ROT))); // all 12
     expect(new Set(cells.map(key)).size).toBe(cells.length);
-    expect(new Set(cells.filter((c) => c.trailing === 1).map((c) => c.rot)).size).toBe(
-      ROTATIONS.length,
-    );
+  });
+
+  it("cableDirsForRot reproduces the verified CORNER_ROT table, 2 rots per L", () => {
+    const byDirs = new Map<string, number[]>();
+    for (let rot = 0; rot < ROTATIONS.length; rot++) {
+      const k = cableDirsForRot(rot).sort().join("|");
+      byDirs.set(k, [...(byDirs.get(k) ?? []), rot]);
+    }
+    expect(byDirs.size).toBe(12); // 24 rots collapse 2:1 — the L's arm-swap flip
+    for (const [dirs, rot] of Object.entries(CORNER_ROT)) {
+      expect(byDirs.get(dirs)).toContain(rot);
+      expect(byDirs.get(dirs)).toHaveLength(2); // rot + its face-swapped twin
+    }
   });
 
   it("every fixture exports, and per-node rot reaches the written _gt", () => {

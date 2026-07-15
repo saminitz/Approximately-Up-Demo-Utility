@@ -65,6 +65,64 @@ describe("game-grid cable router", () => {
     }
   });
 
+  // Two parallel walls with a gap between them; B crosses both. Gap ≤2 has no
+  // room for a down-ramp + up-ramp pair, so the bridge must stay at y+1.
+  const gapCase = (gapWallZ: number) => {
+    const y = 24;
+    return route3DCables([
+      { id: "A1", start: { x: 0, y, z: 0 }, end: { x: 400, y, z: 0 }, startRot: 0, endRot: 0 },
+      { id: "A2", start: { x: 0, y, z: gapWallZ }, end: { x: 400, y, z: gapWallZ }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 200, y, z: -2 }, end: { x: 200, y, z: gapWallZ + 2 }, startRot: 0, endRot: 0 },
+    ], []);
+  };
+
+  it("stays at y+1 across a 1-cell gap between crossings", () => {
+    const { chains, failed } = gapCase(2);
+    expect(failed).toEqual([]);
+    const b = chains.get("B")!;
+    expect(b.some((c) => c.z === 1 && c.y === 25)).toBe(true); // gap spanned at top
+    expect(b.some((c) => c.z === 1 && c.y === 24)).toBe(false); // nothing at y0
+  });
+
+  it("stays at y+1 across a 2-cell gap (no pointless down+up)", () => {
+    const { chains, failed } = gapCase(3);
+    expect(failed).toEqual([]);
+    const b = chains.get("B")!;
+    for (const z of [1, 2]) {
+      expect(b.some((c) => c.z === z && c.y === 25)).toBe(true);
+      expect(b.some((c) => c.z === z && c.y === 24)).toBe(false);
+    }
+  });
+
+  it("descends between crossings when the gap has real flat ground (≥3)", () => {
+    const { chains, failed } = gapCase(4);
+    expect(failed).toEqual([]);
+    const b = chains.get("B")!;
+    // Middle of the gap is back at y0: down-ramp z=1, flat z=2, up-ramp z=3.
+    expect(b.some((c) => c.z === 2 && c.y === 24)).toBe(true);
+    expect(b.some((c) => c.z === 2 && c.y === 25)).toBe(false);
+  });
+
+  it("never lets one bridge cross another bridge's cells at y+1", () => {
+    const y = 24;
+    // A: wall cable at z=0. B: bridges it at x=200, so B's ramp feet sit at
+    // (200,z=-1) and (200,z=1) with tops at y+1. C runs along z=-1 straight
+    // through B's foot; a block wall at z=-2 leaves it no cheap detour, so the
+    // naive router bridged there — landing on B's ramp top at (200,y+1,-1).
+    const blocks: Cell[] = [];
+    for (let x = 0; x <= 400; x++) if (x !== 200) blocks.push({ x, y, z: -2 });
+    const { chains, failed } = route3DCables([
+      { id: "A", start: { x: 0, y, z: 0 }, end: { x: 400, y, z: 0 }, startRot: 0, endRot: 0 },
+      { id: "B", start: { x: 200, y, z: -4 }, end: { x: 200, y, z: 3 }, startRot: 0, endRot: 0 },
+      { id: "C", start: { x: 150, y, z: -1 }, end: { x: 250, y, z: -1 }, startRot: 0, endRot: 0 },
+    ], blocks);
+    expect(failed).toEqual([]);
+    const counts = new Map<string, number>();
+    for (const c of [...chains.values()].flat()) counts.set(yk(c), (counts.get(yk(c)) ?? 0) + 1);
+    const shared = [...counts].filter(([, n]) => n > 1).map(([k]) => k);
+    expect(shared).toEqual([]);
+  });
+
   // Ramp rots come from each cell's own-chain 3D topology, asserted against the
   // ground-truth Cable Bridge.bp table (isolated bridge, no sibling cables).
   const at = (cs: Array<Cell & { rot: number }>, x: number, yy: number, z: number) =>

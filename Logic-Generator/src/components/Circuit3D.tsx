@@ -11,6 +11,7 @@ import {
   outputPortInto,
 } from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
+import { cableDirsForRot } from "../layout/cableShapes";
 import { DIR_TO_SCENE, sceneQuat as rotQuat, toScene, type Vec3Tuple } from "../gameFrame";
 
 // A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
@@ -159,15 +160,19 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       });
     }
 
-    // Cable cells with no chain (the calibration fixtures place bare cells): draw
-    // each one oriented by its own `_gt.rot` instead of by connectivity, so the
-    // scene predicts the in-game mesh angle and the two can be diffed.
+    // Cable cells with no chain (the calibration fixtures place bare cells): the
+    // arms come from the cell's own `_gt.rot` instead of from connectivity, but
+    // the geometry is the same L the routed cables draw — so the scene predicts
+    // the in-game mesh angle and the two can be diffed by eye.
     const chained = new Set(cables.map((c) => cellKey(c.x, c.y, c.z)));
     const loose = laid.cableCells
       .filter((c) => !chained.has(cellKey(c.x, c.y, c.z)))
       .map((c) => {
         acc(c.x, c.y, c.z);
-        return { x: c.x, y: c.y, z: c.z, rot: c.rot, trailing: c.trailing };
+        // Labelled in the GAME frame (like the axes helper), not the model frame
+        // the table is keyed in — the label must name the axes actually drawn.
+        const dirs = cableDirsForRot(c.rot).map((d) => DIR_TO_SCENE[d]);
+        return { x: c.x, y: c.y, z: c.z, rot: c.rot, dirs, label: `${c.rot}: ${dirs.join(" ")}` };
       });
 
     if (!Number.isFinite(minX)) { minX = maxX = minY = maxY = minZ = maxZ = 0; }
@@ -258,26 +263,25 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         </group>
       ))}
 
-      {/* Bare cable cells (calibration fixture): the straight-model-X bar (rot 0 in
-          the cableShapes table) with a +Y tick for chirality, spun by ROTATIONS[rot],
-          labelled with rot/trailing. Geometry is written in the scene frame, so the
-          bar lies along scene Z — model X. */}
+      {/* Bare cable cells (calibration fixture): same L as above, but with the arms
+          derived from the cell's `_gt.rot`, labelled `rot: <arm dirs>` so the
+          in-game mesh can be read off against the label. */}
       {loose.map((c, i) => (
         <group key={`loose-${i}`} position={world(c.x, c.y, c.z)}>
-          <group quaternion={rotQuat(c.rot)}>
-            <mesh>
-              <boxGeometry args={[WIDE, FLAT, ARM * 2]} />
+          <mesh>
+            <boxGeometry args={[WIDE, FLAT, WIDE]} />
+            <meshStandardMaterial color={CABLE_COLOR} />
+          </mesh>
+          {c.dirs.map((d) => (
+            <mesh key={d} position={ARM_GEOM[d].pos}>
+              <boxGeometry args={ARM_GEOM[d].size} />
               <meshStandardMaterial color={CABLE_COLOR} />
             </mesh>
-            <mesh position={[0, 0.15, ARM * 0.7]}>
-              <boxGeometry args={[WIDE, 0.3, FLAT]} />
-              <meshStandardMaterial color="#f59e0b" />
-            </mesh>
-          </group>
-          <Billboard position={[0, 0.7, 0]}>
+          ))}
+          <Billboard position={[0, 0.9, 0]}>
             <Text fontSize={0.3} color="#e6edf3" anchorX="center" anchorY="bottom"
               outlineWidth={0.02} outlineColor="#0e1116">
-              {`${c.rot}${c.trailing ? "·t1" : ""}`}
+              {c.label}
             </Text>
           </Billboard>
         </group>

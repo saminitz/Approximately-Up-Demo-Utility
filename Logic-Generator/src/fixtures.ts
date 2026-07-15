@@ -15,7 +15,7 @@ import type { LaidOutGraph } from "./layout/layout";
 import { INTERIOR_BASE_CELL } from "./layout/layout";
 import { footprintForOp } from "./catalog/ports";
 import { OPS, type OpKey } from "./formula/catalog";
-import type { CableCell } from "./layout/cableShapes";
+import { CORNER_ROT, type CableCell } from "./layout/cableShapes";
 import { PREFAB_TABLE } from "./serializer/prefabTable";
 import { ROTATIONS } from "./serializer/rotations";
 
@@ -23,8 +23,6 @@ const BASE = INTERIOR_BASE_CELL;
 
 /** Spacing along the index axis: 2-wide block + a gap wide enough to see. */
 const STEP_X = 4;
-/** Row spacing: clears a 4-tall block plus a channel. */
-const STEP_Z = 6;
 
 function emptyLaid(nodes: BlockNode[], cableCells: CableCell[]): LaidOutGraph {
   const cells = [...nodes.map((n) => n.cell!), ...cableCells];
@@ -102,24 +100,16 @@ export function fixtureAllRotations(op: OpKey = "add"): LaidOutGraph {
 }
 
 /**
- * A lone cable cell in all 24 `_gt.rot` values, rot ascending along +X, with
- * both trailing values (row z = anchor: trailing 0; row z + STEP_Z: trailing 1).
- * The captured in-game mesh per (rot, trailing) is what replaces the guessed
- * entries in `layout/cableShapes.ts`.
+ * One lone cable cell per DISTINCT L orientation — the 12 `CORNER_ROT` rots, in
+ * ascending rot along +X. The cable mesh is an L symmetric under the flip that
+ * swaps its arms, so the 24 rots are 12 pairs that differ only by which face is
+ * up; only one of each pair is emitted, since a hand-built reference can't
+ * reproduce the twin and nothing depends on it. All corners are trailing 1.
  */
 export function fixtureAllCableRots(): LaidOutGraph {
-  const cells: CableCell[] = [];
-  for (const trailing of [0, 1]) {
-    for (let rot = 0; rot < ROTATIONS.length; rot++) {
-      cells.push({
-        x: BASE.x + rot * 3,
-        y: BASE.y,
-        z: BASE.z + trailing * STEP_Z,
-        rot,
-        trailing,
-      });
-    }
-  }
+  const cells: CableCell[] = [...new Set(Object.values(CORNER_ROT))]
+    .sort((a, b) => a - b)
+    .map((rot, i) => ({ x: BASE.x + i * 3, y: BASE.y, z: BASE.z, rot, trailing: 1 }));
   return emptyLaid(markers(cells), cells);
 }
 
