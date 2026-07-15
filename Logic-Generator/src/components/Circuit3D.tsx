@@ -13,12 +13,14 @@ import {
 import type { LaidOutGraph } from "../layout/layout";
 import { cableDirsForRot } from "../layout/cableShapes";
 import { DIR_TO_SCENE, sceneQuat as rotQuat, toScene, type Vec3Tuple } from "../gameFrame";
+import { cableGeoms } from "./cableGeom";
 
-// A cable cell is drawn from its ACTUAL connectivity: one flat arm from the cell
+// A cable cell is drawn from its ACTUAL connectivity: one round arm from the cell
 // centre toward each neighbour it links to (within its own edge chain, so parallel
-// cables never falsely join). Straight run = two opposite arms (a bar); a turn =
-// two perpendicular half-length arms meeting at the centre (an L, the way the game
-// bends a cable inside one block); a bridge = a horizontal arm + a vertical one.
+// cables never falsely join). Straight run = two opposite arms (a rod); a turn =
+// two perpendicular arms swept through a rounded elbow (the way the game bends a
+// cable inside one block); a bridge = a horizontal arm + a vertical one. Arms reach
+// just past the cell boundary, so a chain's cells meet as one continuous tube.
 type Dir = "+X" | "-X" | "+Y" | "-Y" | "+Z" | "-Z";
 const DIRS: ReadonlyArray<readonly [Dir, number, number, number]> = [
   ["+X", 1, 0, 0], ["-X", -1, 0, 0],
@@ -26,20 +28,6 @@ const DIRS: ReadonlyArray<readonly [Dir, number, number, number]> = [
   ["+Z", 0, 0, 1], ["-Z", 0, 0, -1],
 ];
 
-const ARM = 0.55; // half-cell + slight overlap so adjacent cells' arms touch
-const FLAT = 0.1; // cable thickness (the two faces)
-const WIDE = 0.3; // cable width
-
-// Arm box size + centre offset for each direction (flat = thin on the travel-normal
-// vertical for horizontal arms; vertical arms are thin front-to-back).
-const ARM_GEOM: Record<Dir, { size: [number, number, number]; pos: [number, number, number] }> = {
-  "+X": { size: [ARM, FLAT, WIDE], pos: [0.25, 0, 0] },
-  "-X": { size: [ARM, FLAT, WIDE], pos: [-0.25, 0, 0] },
-  "+Z": { size: [WIDE, FLAT, ARM], pos: [0, 0, 0.25] },
-  "-Z": { size: [WIDE, FLAT, ARM], pos: [0, 0, -0.25] },
-  "+Y": { size: [WIDE, ARM, FLAT], pos: [0, 0.25, 0] },
-  "-Y": { size: [WIDE, ARM, FLAT], pos: [0, -0.25, 0] },
-};
 const CABLE_COLOR = "#4b93f8";
 const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
@@ -81,6 +69,19 @@ interface Vec3 {
   x: number;
   y: number;
   z: number;
+}
+
+/** One cable cell: round tubes out to each linked direction, bent at the centre. */
+function Cable({ dirs }: { dirs: Dir[] }) {
+  return (
+    <>
+      {cableGeoms(dirs).map((g, i) => (
+        <mesh key={i} geometry={g}>
+          <meshStandardMaterial color={CABLE_COLOR} />
+        </mesh>
+      ))}
+    </>
+  );
 }
 
 export interface Circuit3DProps {
@@ -253,20 +254,11 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         </Billboard>
       ))}
 
-      {/* Each cell = a centre node + one flat arm per linked direction (straight,
-          L-bend, tee, or bridge ramp — the cable's real geometry). */}
+      {/* Each cell = round tubes toward its linked directions (straight, L-bend,
+          tee, or bridge ramp — the cable's real geometry). */}
       {cables.map((c, i) => (
         <group key={i} position={world(c.x, c.y, c.z)}>
-          <mesh>
-            <boxGeometry args={[WIDE, FLAT, WIDE]} />
-            <meshStandardMaterial color={CABLE_COLOR} />
-          </mesh>
-          {c.dirs.map((d) => (
-            <mesh key={d} position={ARM_GEOM[d].pos}>
-              <boxGeometry args={ARM_GEOM[d].size} />
-              <meshStandardMaterial color={CABLE_COLOR} />
-            </mesh>
-          ))}
+          <Cable dirs={c.dirs} />
         </group>
       ))}
 
@@ -275,16 +267,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
           in-game mesh can be read off against the label. */}
       {loose.map((c, i) => (
         <group key={`loose-${i}`} position={world(c.x, c.y, c.z)}>
-          <mesh>
-            <boxGeometry args={[WIDE, FLAT, WIDE]} />
-            <meshStandardMaterial color={CABLE_COLOR} />
-          </mesh>
-          {c.dirs.map((d) => (
-            <mesh key={d} position={ARM_GEOM[d].pos}>
-              <boxGeometry args={ARM_GEOM[d].size} />
-              <meshStandardMaterial color={CABLE_COLOR} />
-            </mesh>
-          ))}
+          <Cable dirs={c.dirs} />
           <Billboard position={[0, 0.9, 0]}>
             <Text fontSize={0.3} color="#e6edf3" anchorX="center" anchorY="bottom"
               outlineWidth={0.02} outlineColor="#0e1116">
