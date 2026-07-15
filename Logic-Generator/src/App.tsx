@@ -160,7 +160,7 @@ export default function App() {
           <div className="toggles">
             <label>
               <input type="checkbox" checked={emitCables} onChange={(e) => setEmitCables(e.target.checked)} />
-              Emit cable cells (provisional)
+              Include visible cables (experimental)
             </label>
           </div>
           <div className="actions">
