@@ -64,7 +64,10 @@ export const PORT_BY_OP: Partial<Record<OpKey, PortTopology>> = (() => {
     if (!b.opKey) continue;
     m[b.opKey] = topologyFromPorts(b.ports);
   }
-  m.output = m.input;
+  // The output terminal is the same physical block as the input terminal; its
+  // single port (east face, dx 2) acts as the INPUT when the terminal sinks a
+  // signal — so it can never abut a producer and is always cabled.
+  m.output = m.input && { inputs: m.input.outputs, outputs: [] };
   return m;
 })();
 
@@ -103,8 +106,9 @@ const DEFAULT_SOURCE: PortTopology = {
   outputs: [{ face: "+X", dx: 2, dz: 1, chainLen: 2 }],
 };
 
+// Terminal port is on the east face (same block as the input terminal).
 const DEFAULT_SINK: PortTopology = {
-  inputs: [{ face: "-X", dx: -1, dz: 0, chainLen: 1 }],
+  inputs: [{ face: "+X", dx: 2, dz: 1, chainLen: 1 }],
   outputs: [],
 };
 

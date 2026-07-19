@@ -81,8 +81,8 @@ function validate(laid: LaidOutGraph) {
 
 describe("layoutDense", () => {
   it("fuses a pure chain except the 2x-misaligned output edge", () => {
-    // input→deriv abuts (both ports at dz 1). deriv→output would need an odd
-    // z-shift (output-in sits at dz 0) — illegal on the 2x grid, so it cables.
+    // input→deriv abuts (both ports at dz 1). deriv→output always cables: the
+    // terminal's only port is on its east face, so it can't oppose an output.
     const laid = layoutDense(compileFormula("y = deriv(x)"));
     const byId = new Map(laid.nodes.map((n) => [n.id, n]));
     for (const r of laid.routes) {

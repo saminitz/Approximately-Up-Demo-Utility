@@ -105,8 +105,11 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
 
   // --- Phase A: abutment fusion ---------------------------------------------
   // Greedy over edges in topo order: fuse producer→consumer when the +X output
-  // face meets the -X input face and the output has no fanout (its port cell
-  // gets buried under the consumer). A fusion is only accepted if every OTHER
+  // face meets the -X input face and the involved outputs feed nothing else
+  // (their port cells get buried under the consumer). ALL parallel edges
+  // between the pair fuse (or fail) together — one abutment connects every
+  // port pair at once, so they must all align under the same even z-shift.
+  // A fusion is only accepted if every OTHER
   // used port along the whole resulting chain stays outside the chain's
   // footprints AND keeps at least one free orthogonal neighbor — a port walled
   // in by its own chain (footprints + reserved sibling ports) can never be
@@ -143,17 +146,30 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     const p = byId.get(e.from.blockId)!;
     const c = byId.get(e.to.blockId)!;
     if (p.id === c.id || fusedNext.has(p.id) || fusedPrev.has(c.id)) continue;
-    if (outByPort.get(`${p.id}:${e.from.port}`)!.length !== 1) continue;
+    const group = outEdges.get(p.id)!.filter((e2) => e2.to.blockId === c.id);
+    const groupIds = new Set(group.map((g) => g.id));
+    // Every involved output port gets buried, so it may feed only this consumer.
+    if (
+      !group.every((g) =>
+        outByPort.get(`${p.id}:${g.from.port}`)!.every((x) => groupIds.has(x.id)),
+      )
+    )
+      continue;
     const pw = footprintForOp(p.op).w;
-    const oOut = outputPortCell(p.op, ZERO, e.from.port);
-    const oIn = inputPortCell(c.op, ZERO, e.to.port);
-    if (oOut.x !== pw || oIn.x !== -1) continue; // faces must oppose across +X
-    if ((oOut.z - oIn.z) & 1) continue; // odd z-shift would knock c off the 2x grid
+    const shifts = group.map((g) => {
+      const oOut = outputPortCell(p.op, ZERO, g.from.port);
+      const oIn = inputPortCell(c.op, ZERO, g.to.port);
+      // NaN when the faces don't oppose across +X — poisons the same-shift test.
+      return oOut.x === pw && oIn.x === -1 ? oOut.z - oIn.z : NaN;
+    });
+    const shift = shifts[0];
+    if (!shifts.every((s) => s === shift)) continue;
+    if (shift & 1) continue; // odd z-shift would knock c off the 2x grid
 
     // Candidate chain: p's existing run plus c abutted east of p.
     const blocks = [
       ...chainBehind(p),
-      { node: c, x: pw, z: oOut.z - oIn.z },
+      { node: c, x: pw, z: shift },
     ];
     const foot = new Set(
       blocks.flatMap((b) =>
@@ -164,9 +180,11 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     for (const b of blocks) {
       const a = { x: b.x, y: 0, z: b.z };
       for (const e2 of inEdges.get(b.node.id)!)
-        if (e2 !== e && !fused.has(e2.id)) usedPorts.push(inputPortCell(b.node.op, a, e2.to.port));
+        if (!groupIds.has(e2.id) && !fused.has(e2.id))
+          usedPorts.push(inputPortCell(b.node.op, a, e2.to.port));
       for (const e2 of outEdges.get(b.node.id)!)
-        if (e2 !== e && !fused.has(e2.id)) usedPorts.push(outputPortCell(b.node.op, a, e2.from.port));
+        if (!groupIds.has(e2.id) && !fused.has(e2.id))
+          usedPorts.push(outputPortCell(b.node.op, a, e2.from.port));
     }
     const portSet = new Set(usedPorts.map((f) => key(f.x, f.z)));
     const ok = usedPorts.every((f) => {
@@ -179,7 +197,9 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
       });
     });
     if (!ok) continue;
-    fused.add(e.id);
+    for (const g of group) fused.add(g.id);
+    // One representative edge per link — all group shifts are equal, so the
+    // chain walkers reconstruct the same offset from any of them.
     fusedNext.set(p.id, e);
     fusedPrev.set(c.id, e);
   }
