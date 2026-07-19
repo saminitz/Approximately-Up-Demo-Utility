@@ -11,6 +11,10 @@
 //  3. AUTO-SPREAD — remaining edges go through the existing A* router; if any
 //     fail, the whole box is re-packed with one more cell of channel and retried.
 //     ponytail: global gap bump, per-region relaxation only if this proves coarse.
+//
+// Game constraint: logic blocks snap to a 2x grid — every block anchor keeps
+// even X and Z (fusion offsets, chain normalization, and shelf origins are all
+// parity-guarded). Cables live on the fine 1x grid.
 
 import type { BlockGraph, BlockNode, Edge } from "../compiler/graph";
 import {
@@ -144,6 +148,7 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     const oOut = outputPortCell(p.op, ZERO, e.from.port);
     const oIn = inputPortCell(c.op, ZERO, e.to.port);
     if (oOut.x !== pw || oIn.x !== -1) continue; // faces must oppose across +X
+    if ((oOut.z - oIn.z) & 1) continue; // odd z-shift would knock c off the 2x grid
 
     // Candidate chain: p's existing run plus c abutted east of p.
     const blocks = [
@@ -202,6 +207,12 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
         minZ = Math.min(minZ, f.z); maxZ = Math.max(maxZ, f.z);
       }
     }
+    // Blocks may only sit on the 2x grid; ports can push the bbox to an odd
+    // corner, so shift by the blocks' own parity, not the raw minimum. (All
+    // blocks in a chain share parity: fusion offsets are even, and a 180° flip
+    // shifts every anchor by the odd -(w-1)/-(h-1) uniformly.)
+    if ((minX ^ blocks[0].x) & 1) minX--;
+    if ((minZ ^ blocks[0].z) & 1) minZ--;
     for (const b of blocks) {
       b.x -= minX;
       b.z -= minZ;
@@ -275,12 +286,22 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     for (let c of chains) {
       if (x > 0 && x + c.w > W) {
         shelfZ += shelfH + gap;
+        shelfZ += shelfZ & 1; // next shelf starts on an even row (2x grid)
         shelfH = 0;
         x = 0;
         shelf++;
       }
       c = rotateChain(c, shelf % 2 ? 2 : 0); // serpentine: flip odd shelves
-      const ox = shelf % 2 ? W - x - c.w : x; // …and fill them east→west
+      // …fill odd shelves east→west. Snap each chain origin to an even column,
+      // toward the free side, so block anchors stay on the 2x grid.
+      let ox: number;
+      if (shelf % 2) {
+        ox = W - x - c.w;
+        ox -= ox & 1;
+      } else {
+        x += x & 1;
+        ox = x;
+      }
       for (const b of c.blocks) {
         b.node.cell = {
           x: INTERIOR_BASE_CELL.x + ox + b.x,
@@ -289,7 +310,7 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
         };
         b.node.turns = b.turns || undefined;
       }
-      x += c.w + gap;
+      x = (shelf % 2 ? W - ox : ox + c.w) + gap;
       shelfH = Math.max(shelfH, c.h);
     }
 

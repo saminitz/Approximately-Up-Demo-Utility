@@ -115,16 +115,53 @@ describe("game-grid cable router", () => {
     blocks.push({ x: 0, y, z: 0 });
     blocks.push({ x: 11, y, z: 2 }, { x: 12, y, z: 2 });
     for (let z = -6; z <= 2; z++) blocks.push({ x: 13, y, z });
+    // blockCost 1000: keep the fence impassable — this test is about the
+    // cable-over-cable gap machinery, not block arching.
     const { chains, failed } = route3DCables([
       { id: "A", start: { x: 10, y, z: 2 }, end: { x: 12, y, z: -1 }, startRot: 0, endRot: 0 },
       { id: "B", start: { x: 5, y, z: 0 }, end: { x: 11, y, z: -4 }, startRot: 0, endRot: 0 },
-    ], blocks);
+    ], blocks, { turnCost: 3, bridgeCost: 60, blockCost: 1000 });
     expect(failed).toEqual([]);
     const b = chains.get("B")!;
     const gap = b.find((c) => c.x === 11 && c.z === 0);
     expect(gap?.y).toBe(y + 1); // arch turns at the top, no descent
     expect(b.some((c) => c.x === 11 && c.z === 0 && c.y === y)).toBe(false);
     expect(gap?.rot).toBe(CORNER_ROT["-X|-Z"]);
+  });
+
+  it("arches over a block when detouring around costs more", () => {
+    const y = 24;
+    // A long 2-cell-thick block wall at z=0..1; detouring around either end
+    // costs ~100 cells, so the cable must arch straight over both block cells.
+    const blocks: Cell[] = [];
+    for (let x = 0; x <= 100; x++) blocks.push({ x, y, z: 0 }, { x, y, z: 1 });
+    const { cells, failed } = route3DCables([
+      { id: "B", start: { x: 50, y, z: -2 }, end: { x: 50, y, z: 3 }, startRot: 0, endRot: 0 },
+    ], blocks);
+    expect(failed).toEqual([]);
+    // Both block cells spanned at y+1; no cable cell at y0 inside the wall.
+    for (const z of [0, 1]) {
+      expect(cells.some((c) => c.x === 50 && c.y === y + 1 && c.z === z)).toBe(true);
+      expect(cells.some((c) => c.y === y && c.z === z)).toBe(false);
+    }
+    // Ramps land on the flat cells just outside the wall.
+    expect(cells.find((c) => c.x === 50 && c.y === y && c.z === -1)?.trailing).toBe(1);
+    expect(cells.find((c) => c.x === 50 && c.y === y && c.z === 2)?.trailing).toBe(1);
+  });
+
+  it("still detours around a block when that is cheaper than arching", () => {
+    const y = 24;
+    // A lone 2×2 block between the ports with free lanes beside it: going
+    // around (~8 extra incl. turns) beats arching over (2 × blockCost = 16).
+    const blocks: Cell[] = [
+      { x: 2, y, z: 0 }, { x: 3, y, z: 0 },
+      { x: 2, y, z: 1 }, { x: 3, y, z: 1 },
+    ];
+    const { cells, failed } = route3DCables([
+      { id: "B", start: { x: 0, y, z: 0 }, end: { x: 5, y, z: 0 }, startRot: 0, endRot: 0 },
+    ], blocks);
+    expect(failed).toEqual([]);
+    expect(cells.every((c) => c.y === y)).toBe(true); // flat route, no arch
   });
 
   it("never lets one bridge cross another bridge's cells at y+1", () => {
@@ -135,11 +172,12 @@ describe("game-grid cable router", () => {
     // naive router bridged there — landing on B's ramp top at (200,y+1,-1).
     const blocks: Cell[] = [];
     for (let x = 0; x <= 400; x++) if (x !== 200) blocks.push({ x, y, z: -2 });
+    // blockCost 1000: keep the wall impassable so C is forced along z=-1.
     const { chains, failed } = route3DCables([
       { id: "A", start: { x: 0, y, z: 0 }, end: { x: 400, y, z: 0 }, startRot: 0, endRot: 0 },
       { id: "B", start: { x: 200, y, z: -4 }, end: { x: 200, y, z: 3 }, startRot: 0, endRot: 0 },
       { id: "C", start: { x: 150, y, z: -1 }, end: { x: 250, y, z: -1 }, startRot: 0, endRot: 0 },
-    ], blocks);
+    ], blocks, { turnCost: 3, bridgeCost: 60, blockCost: 1000 });
     expect(failed).toEqual([]);
     const counts = new Map<string, number>();
     for (const c of [...chains.values()].flat()) counts.set(yk(c), (counts.get(yk(c)) ?? 0) + 1);

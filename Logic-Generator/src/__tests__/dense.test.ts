@@ -50,12 +50,16 @@ function area(laid: LaidOutGraph): number {
  * edge is either routed or realized by abutment (ports inside the partner). */
 function validate(laid: LaidOutGraph) {
   const blockCells = new Set<string>();
-  for (const n of laid.nodes)
+  for (const n of laid.nodes) {
+    // Game constraint: logic blocks snap to a 2x grid (even X and Z anchors).
+    expect(n.cell!.x & 1, `block ${n.id} off 2x grid (x=${n.cell!.x})`).toBe(0);
+    expect(n.cell!.z & 1, `block ${n.id} off 2x grid (z=${n.cell!.z})`).toBe(0);
     for (const c of footprintCellsForOp(n.op, n.cell!, n.turns ?? 0)) {
       const k = cellKey(c);
       expect(blockCells.has(k), `block overlap at ${k}`).toBe(false);
       blockCells.add(k);
     }
+  }
   for (const c of laid.cableCells)
     expect(blockCells.has(cellKey(c)), `cable inside block at ${cellKey(c)}`).toBe(false);
 
@@ -76,10 +80,16 @@ function validate(laid: LaidOutGraph) {
 }
 
 describe("layoutDense", () => {
-  it("fuses a pure chain end to end (zero cables)", () => {
+  it("fuses a pure chain except the 2x-misaligned output edge", () => {
+    // input→deriv abuts (both ports at dz 1). deriv→output would need an odd
+    // z-shift (output-in sits at dz 0) — illegal on the 2x grid, so it cables.
     const laid = layoutDense(compileFormula("y = deriv(x)"));
-    expect(laid.cableCells.length).toBe(0);
-    expect(laid.routes.every((r) => r.cells.length === 0)).toBe(true);
+    const byId = new Map(laid.nodes.map((n) => [n.id, n]));
+    for (const r of laid.routes) {
+      const e = laid.edges.find((x) => x.id === r.edgeId)!;
+      const toOutput = byId.get(e.to.blockId)!.op === "output";
+      expect(r.cells.length === 0, `edge ${e.id}`).toBe(!toOutput);
+    }
     validate(laid);
   });
 

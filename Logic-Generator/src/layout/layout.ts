@@ -87,7 +87,7 @@ export function layoutGraph(
 ): LaidOutGraph {
   let r = attempt(graph, opts, new Set());
   for (let a = 1; a < MAX_ATTEMPTS && r.failed.length > 0; a++) {
-    const extra = a >> 1;
+    const extra = (a >> 1) * 2; // widen by 2s: blocks may only sit on the 2x grid
     r = attempt(
       graph,
       { ...opts, colStep: opts.colStep + extra, rowStep: opts.rowStep + extra },

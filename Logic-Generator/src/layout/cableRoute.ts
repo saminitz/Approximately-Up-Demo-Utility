@@ -1,10 +1,12 @@
 // Game-grid cable router for the .bp export.
 //
 // Each edge is an INDEPENDENT point-to-point chain (source output port -> target
-// input port). Cables may not share a cell with a block or with another cable.
-// Where two cables must cross, the later one BRIDGES over the earlier: it rises
-// one grid-Y level, spans the crossed cell at y+1, and descends (verified shape
-// from `1b66fd4d… Cable Bridge.bp`).
+// input port). Cables may not share a cell with a block or with another cable at
+// the same level. Where a cable must cross another cable — or where going
+// straight over a block is cheaper than detouring around it — the cable BRIDGES:
+// it rises one grid-Y level, spans the crossed cells at y+1, and descends
+// (verified shape from `1b66fd4d… Cable Bridge.bp`). Other edges' port cells
+// stay hard obstacles.
 //
 // `_gt.rot` is cosmetic (connectivity comes from cell adjacency, not orientation)
 // and the game derives it from the 3D mesh in a way not recoverable from cell
@@ -85,17 +87,22 @@ const axisOfDir = (d: Dir): "X" | "Z" => (d < 2 ? "X" : "Z");
 interface AStarOpts {
   turnCost: number;
   bridgeCost: number;
+  /** Per-cell cost of arching over a block footprint (vs detouring around). */
+  blockCost: number;
 }
 
 /**
- * A* over integer (x,z) cells. Block cells are hard obstacles. Cable-occupied
- * cells are passable only as a straight perpendicular crossing (a bridge), at
- * `bridgeCost`. Returns the cell path (start..end inclusive) or null.
+ * A* over integer (x,z) cells. `blocked` cells (other edges' ports) are hard
+ * obstacles. `blocks` cells (block footprints) and cable-occupied cells are
+ * passable only as a straight crossing at y+1 (a bridge) — perpendicular-only
+ * over cables — at `blockCost`/`bridgeCost`. Returns the cell path
+ * (start..end inclusive) or null.
  */
 function astar(
   start: Cell,
   end: Cell,
   blocked: Set<string>,
+  blocks: Set<string>,
   occupied: Map<string, "X" | "Z">,
   bridged: Set<string>,
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
@@ -130,27 +137,36 @@ function astar(
       }
       return path.reverse();
     }
-    // If standing on an occupied (crossing) cell, only continue straight.
-    const onOccupied = occupied.has(key(cur.x, cur.z)) && !(cur.x === start.x && cur.z === start.z);
+    // If standing on a crossing cell (over a cable or a block), only continue straight.
+    const curK = key(cur.x, cur.z);
+    const elevated =
+      (occupied.has(curK) || blocks.has(curK)) && !(cur.x === start.x && cur.z === start.z);
     for (let nd = 0 as Dir; nd < 4; nd++) {
-      if (onOccupied && cur.d !== 4 && nd !== cur.d) continue; // no turn on a bridge
+      if (elevated && cur.d !== 4 && nd !== cur.d) continue; // no turn on a bridge
       const nx = cur.x + DX[nd];
       const nz = cur.z + DZ[nd];
       if (nx < bounds.minX || nx > bounds.maxX || nz < bounds.minZ || nz > bounds.maxZ) continue;
       const nk = key(nx, nz);
       const isEnd = nx === end.x && nz === end.z;
-      if (blocked.has(nk) && !isEnd) continue;
+      if (blocked.has(nk) && !isEnd) continue; // another edge's port: hard
       let stepCost = 1;
       const occAxis = occupied.get(nk);
-      if (occAxis !== undefined && !isEnd) {
+      let crossing = false;
+      if (blocks.has(nk) && !isEnd) {
+        // Span the block at y+1 (any direction, but straight while on it).
+        // y+1 must be free for our span here and for the up-ramp we'd need on cur.
+        if (bridged.has(nk) || bridged.has(curK)) continue;
+        stepCost += opts.blockCost;
+        crossing = true;
+      } else if (occAxis !== undefined && !isEnd) {
         // May only cross perpendicular to the existing cable, moving straight.
         if (occAxis === axisOfDir(nd)) continue; // parallel overlap forbidden
-        // y+1 must be free for our span here and for the up-ramp we'd need on cur.
-        if (bridged.has(nk) || bridged.has(key(cur.x, cur.z))) continue;
+        if (bridged.has(nk) || bridged.has(curK)) continue;
         stepCost += opts.bridgeCost;
+        crossing = true;
       }
       // Leaving a crossing run: nk is our down-ramp, so its y+1 must be free too.
-      if (onOccupied && occAxis === undefined && bridged.has(nk)) continue;
+      if (elevated && !crossing && bridged.has(nk)) continue;
       if (cur.d !== 4 && cur.d !== nd) stepCost += opts.turnCost;
       const tentative = cg + stepCost;
       const nkey = idx(nx, nz, nd);
@@ -165,13 +181,16 @@ function astar(
 }
 
 /**
- * Route every edge, avoiding blocks and previously-placed cables, bridging where
- * a crossing is unavoidable. Edges are routed in the given order.
+ * Route every edge, bridging over blocks and previously-placed cables where
+ * that beats detouring around them. Edges are routed in the given order.
  */
 export function route3DCables(
   edges: RouteEdge[],
   blockCells: Iterable<Cell>,
-  opts: AStarOpts = { turnCost: 3, bridgeCost: 60 },
+  // ponytail: blockCost 8 hand-tuned — a 2-cell arch (16) loses to an easy
+  // detour (~8-10) but wins against anything longer; retune if circuits look
+  // too archy or too sprawling.
+  opts: AStarOpts = { turnCost: 3, bridgeCost: 60, blockCost: 8 },
 ): RouteResult {
   const blocked = new Set<string>();
   for (const c of blockCells) blocked.add(key(c.x, c.z));
@@ -218,11 +237,11 @@ export function route3DCables(
   }
 
   for (const e of edges) {
-    const reserved = new Set(blocked);
+    const reserved = new Set<string>();
     for (const p of allPorts) reserved.add(p);
     reserved.delete(key(e.start.x, e.start.z));
     reserved.delete(key(e.end.x, e.end.z));
-    const path = astar(e.start, e.end, reserved, occupied, bridged, bounds, opts);
+    const path = astar(e.start, e.end, reserved, blocked, occupied, bridged, bounds, opts);
     if (!path) {
       failed.push(e.id);
       continue;
@@ -239,8 +258,10 @@ export function route3DCables(
     // sits right next to a port (index 1 or n-2) the port cell itself becomes the
     // riser — its foot connects into the block and up.
     const role: Array<"flat" | "up" | "span" | "down"> = new Array(n).fill("flat");
-    for (let i = 1; i < n - 1; i++)
-      if (occupied.has(key(path[i].x, path[i].z))) role[i] = "span";
+    for (let i = 1; i < n - 1; i++) {
+      const k = key(path[i].x, path[i].z);
+      if (occupied.has(k) || blocked.has(k)) role[i] = "span"; // over a cable or a block
+    }
     // Descending between two crossings needs a down-ramp AND an up-ramp cell.
     // A gap of ≤2 flat cells leaves no level ground between them (gap 1 can't
     // even fit both — it would emit a down-ramp whose foot dangles under the
