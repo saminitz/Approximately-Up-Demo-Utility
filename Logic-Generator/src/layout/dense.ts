@@ -34,11 +34,11 @@ import {
 } from "./layout";
 
 /** Width bias of the packed box (>1 = wider than tall; cables run mostly in X). */
-const ASPECT = 1.6;
+const ASPECT = 1.3;
 /** Routing attempts; every second retry adds one cell of channel everywhere.
  * ponytail: global gap bump + failed-first reorder; per-region relaxation only
  * if a real formula still falls back to the layered grid. */
-const MAX_ATTEMPTS = 10;
+const MAX_ATTEMPTS = 15;
 
 const key = (x: number, z: number) => `${x},${z}`;
 const ZERO = { x: 0, y: 0, z: 0 };
