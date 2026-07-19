@@ -20,6 +20,27 @@ import { ROT_LOGIC, ROT_UPRIGHT } from "../serializer/rotations";
 
 const PD = "u = Kp*(t - p) + Kd*deriv(t - p)";
 
+// The "6-DOF stabilizer (complex)" example from App.tsx — 92 edges; used to
+// leave 2 unrouted before layoutGraph grew its retry sweep.
+const SIX_DOF = `altError  = targetAlt - altitude
+altRate   = deriv(altitude)
+altInteg  = integral(altError)
+altPID    = Kp*altError + Ki*altInteg - Kd*altRate
+tiltMag   = abs(pitch) + abs(roll)
+tilt      = atan2(pitch, roll)
+gyroMix   = gx*gx + gy*gy + gz*gz
+spin      = pow(gyroMix, 0.5)
+damp      = tanh(spin) * max(tiltMag, 0.001)
+heading   = atan2(yaw, tilt)
+wrap      = mod(heading, 6.2831853)
+osc       = sin(wrap) * cos(altRate) + tan(min(damp, 1.5))
+gate      = xor(threshold(altError, 0.0), not(condition(spin, spinLimit)))
+gated     = condition(gate, altPID)
+shaped    = remap(gated, -10, 10, -1, 1)
+memHold   = memory(shaped)
+expTerm   = exp(-abs(shaped)) + log(1 + tiltMag)
+thrust    = memHold + osc*0.25 - damp*0.1 + expTerm`;
+
 
 
 describe("placement fixes (rotation + interior offset)", () => {
@@ -191,6 +212,14 @@ describe("cable orientation (rot in _gt)", () => {
     // 3 wireless + 1 adder; exactly the one output terminal is flipped to rot 6.
     expect(blockRots.filter((r) => r === ROT_UPRIGHT)).toHaveLength(1);
     expect(blockRots.filter((r) => r === ROT_LOGIC)).toHaveLength(3);
+  });
+
+  it("routes every edge of the 6-DOF stabilizer (retry sweep)", () => {
+    const laid = layoutGraph(compileFormula(SIX_DOF));
+    expect(laid.failedRoutes).toBeUndefined();
+    for (const r of laid.routes) {
+      expect(r.cells.length, `edge ${r.edgeId} has no route`).toBeGreaterThan(0);
+    }
   });
 
   it("emits varied cable rot values for routed PD sample", () => {

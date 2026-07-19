@@ -36,6 +36,9 @@ export interface LaidOutGraph {
   inputs: string[];
   outputs: string[];
   bounds: { cols: number; rows: number; maxX: number; maxZ: number };
+  /** Edge ids the router could not path even after retry sweeps. Absent when
+   * everything routed (the normal case). */
+  failedRoutes?: string[];
 }
 
 export interface LayoutOptions {
@@ -68,14 +71,39 @@ export const DEFAULT_LAYOUT: LayoutOptions = {
   originZ: INTERIOR_BASE_CELL.z,
 };
 
+/** Routing attempts; every second retry widens the grid steps by one cell.
+ * Same sweep as dense.ts: failed-first reorder before conceding more room. */
+const MAX_ATTEMPTS = 10;
+
 /**
  * Layered, topological left-to-right layout on the game's X-Z circuit plane
  * (Y constant). Cables are routed as orthogonal Manhattan paths between layers.
+ * Retries with failed edges routed first, then wider steps, until every edge
+ * routes; a residual failure is surfaced in `failedRoutes`.
  */
 export function layoutGraph(
   graph: BlockGraph,
   opts: LayoutOptions = DEFAULT_LAYOUT,
 ): LaidOutGraph {
+  let r = attempt(graph, opts, new Set());
+  for (let a = 1; a < MAX_ATTEMPTS && r.failed.length > 0; a++) {
+    const extra = a >> 1;
+    r = attempt(
+      graph,
+      { ...opts, colStep: opts.colStep + extra, rowStep: opts.rowStep + extra },
+      // Only the LATEST failures get priority — an accumulated set dilutes it.
+      new Set(r.failed),
+    );
+  }
+  if (r.failed.length > 0) r.laid.failedRoutes = r.failed;
+  return r.laid;
+}
+
+function attempt(
+  graph: BlockGraph,
+  opts: LayoutOptions,
+  priority: ReadonlySet<string>,
+): { laid: LaidOutGraph; failed: string[] } {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const preds = new Map<string, string[]>();
   const succs = new Map<string, string[]>();
@@ -184,7 +212,14 @@ export function layoutGraph(
         cells.push({ x: n.cell.x + dx, y: n.cell.y, z: n.cell.z + dz });
     return cells;
   });
-  const { cells: cableCells, flatPaths, chains } = route3DCables(routeEdges, blockCells);
+  // Edges that failed the previous sweep route FIRST — a port pocketed by its
+  // siblings' cables is only reachable before they route. Stable sort keeps
+  // the original edge order otherwise.
+  if (priority.size > 0)
+    routeEdges.sort(
+      (a, b) => (priority.has(b.id) ? 1 : 0) - (priority.has(a.id) ? 1 : 0),
+    );
+  const { cells: cableCells, flatPaths, chains, failed } = route3DCables(routeEdges, blockCells);
 
   const routes: CableRoute[] = graph.edges.map((e) => ({
     edgeId: e.id,
@@ -203,13 +238,16 @@ export function layoutGraph(
   const maxZ = opts.originZ + (maxRows - 1) * opts.rowStep + 1;
 
   return {
-    nodes: graph.nodes,
-    edges: graph.edges,
-    routes,
-    cableCells,
-    cableChains,
-    inputs: graph.inputs,
-    outputs: graph.outputs,
-    bounds: { cols, rows: maxRows, maxX, maxZ },
+    laid: {
+      nodes: graph.nodes,
+      edges: graph.edges,
+      routes,
+      cableCells,
+      cableChains,
+      inputs: graph.inputs,
+      outputs: graph.outputs,
+      bounds: { cols, rows: maxRows, maxX, maxZ },
+    },
+    failed,
   };
 }
