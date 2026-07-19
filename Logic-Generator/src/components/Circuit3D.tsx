@@ -148,8 +148,8 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       const edge = edgeById.get(chain.edgeId);
       const from = edge && byId.get(edge.from.blockId);
       const to = edge && byId.get(edge.to.blockId);
-      const startInto = from ? outputPortInto(from.op, edge!.from.port) : undefined;
-      const endInto = to ? inputPortInto(to.op, edge!.to.port) : undefined;
+      const startInto = from ? outputPortInto(from.op, edge!.from.port, from.turns ?? 0) : undefined;
+      const endInto = to ? inputPortInto(to.op, edge!.to.port, to.turns ?? 0) : undefined;
       const last = chain.cells.length - 1;
       chain.cells.forEach((c, idx) => {
         acc(c.x, c.y, c.z);

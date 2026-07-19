@@ -15,9 +15,12 @@ export interface BlockNode {
   signalName?: string;
   /** Layout result (grid cells), filled by the layout engine. */
   cell?: { x: number; y: number; z: number };
-  /** Explicit `_gt.rot` override. The compiler/layout never sets this; only the
-   * calibration fixtures do. Unset = the exporter's per-op default. */
+  /** Explicit `_gt.rot` override. Set by the dense layout (rotated blocks) and
+   * the calibration fixtures. Unset = the exporter's per-op default. */
   rot?: number;
+  /** Grid quarter-turns about +Y that `rot` encodes, kept so the viewer and
+   * port math can rotate offsets without inverting the quaternion. Unset = 0. */
+  turns?: number;
 }
 
 export interface PortRef {

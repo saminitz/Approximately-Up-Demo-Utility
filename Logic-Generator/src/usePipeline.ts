@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { PipelineResult } from "./pipeline";
+import type { PipelineRequest, PipelineResult } from "./pipeline";
+import type { LayoutAlgo } from "./layout/strategies";
 
 /** Quiet time after the last edit before a run starts. */
 const DEBOUNCE_MS = 400;
@@ -10,7 +11,7 @@ const DEBOUNCE_MS = 400;
  * has no other cancel point) and a fresh worker runs the current source. The last
  * good result stays visible until the new one lands.
  */
-export function usePipeline(src: string) {
+export function usePipeline(src: string, algo: LayoutAlgo) {
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [running, setRunning] = useState(true);
   const worker = useRef<Worker | null>(null);
@@ -27,10 +28,10 @@ export function usePipeline(src: string) {
         setResult(e.data);
         setRunning(false);
       };
-      w.postMessage(src);
+      w.postMessage({ src, algo } satisfies PipelineRequest);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [src]);
+  }, [src, algo]);
 
   useEffect(() => () => worker.current?.terminate(), []);
 

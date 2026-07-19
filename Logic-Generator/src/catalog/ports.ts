@@ -2,6 +2,7 @@
 // Source of truth: `data/port-map.json` (regenerate via `node scratch/parseBlockListPorts.js --write`).
 
 import type { OpKey } from "../formula/catalog";
+import { yawRot } from "../serializer/rotations";
 import portMapJson from "../../data/port-map.json";
 
 export type PortFace = "+X" | "-X" | "+Z" | "-Z";
@@ -154,6 +155,52 @@ export function portCell(
   return { x: anchor.x + offset.dx, y: anchor.y, z: anchor.z + offset.dz };
 }
 
+// --- Y-axis rotation (grid quarter-turns) -----------------------------------
+// Rotation is about the UNROTATED w×h footprint centre — the same pivot the
+// viewer rotates the mesh around, so grid, viewer, and export stay consistent.
+// All footprints are even×even, so rotated offsets stay on integer cells.
+
+/** Rotate a plane face by quarter-turns about +Y (+X→−Z→−X→+Z). */
+export function rotFace(face: PortFace, turns: number): PortFace {
+  const cycle: PortFace[] = ["+X", "-Z", "-X", "+Z"];
+  return cycle[(cycle.indexOf(face) + ((turns % 4) + 4) % 4) % 4];
+}
+
+/** (dx,dz) anchor-relative offset rotated about the w×h footprint centre. */
+function rotOffset(
+  dx: number,
+  dz: number,
+  w: number,
+  h: number,
+  turns: number,
+): { dx: number; dz: number } {
+  const cx = (w - 1) / 2;
+  const cz = (h - 1) / 2;
+  let u = dx - cx;
+  let v = dz - cz;
+  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) [u, v] = [v, -u];
+  return { dx: cx + u, dz: cz + v };
+}
+
+/**
+ * The grid cells a block occupies at `anchor`, rotated `turns` quarter-turns.
+ * turns 0/2 (and any turn of a square block) keep the unrotated rectangle.
+ */
+export function footprintCellsForOp(
+  op: OpKey,
+  anchor: { x: number; y: number; z: number },
+  turns = 0,
+): { x: number; y: number; z: number }[] {
+  const { w, h } = footprintForOp(op);
+  const cells: { x: number; y: number; z: number }[] = [];
+  for (let dx = 0; dx < w; dx++)
+    for (let dz = 0; dz < h; dz++) {
+      const r = rotOffset(dx, dz, w, h, turns);
+      cells.push({ x: anchor.x + r.dx, y: anchor.y, z: anchor.z + r.dz });
+    }
+  return cells;
+}
+
 /**
  * `_gt.rot` of the first cable cell touching a port. Block List convention: cells
  * on the block's west (-X) face use rot 5, east (+X) face use rot 0 (independent
@@ -173,28 +220,45 @@ function outputOffset(op: OpKey, portIndex: number): PortOffset {
   return topo.outputs[portIndex] ?? topo.outputs[0] ?? { face: "+X", dx: 2, dz: 1 };
 }
 
+/** Port cell with the block rotated `turns` quarter-turns (0 = today's output). */
+function rotatedPortCell(
+  op: OpKey,
+  anchor: { x: number; y: number; z: number },
+  off: PortOffset,
+  turns: number,
+): { x: number; y: number; z: number } {
+  if (!turns) return portCell(anchor, off);
+  const { w, h } = footprintForOp(op);
+  const r = rotOffset(off.dx, off.dz, w, h, turns);
+  return { x: anchor.x + r.dx, y: anchor.y, z: anchor.z + r.dz };
+}
+
 export function inputPortCell(
   op: OpKey,
   anchor: { x: number; y: number; z: number },
   portIndex: number,
+  turns = 0,
 ): { x: number; y: number; z: number } {
-  return portCell(anchor, inputOffset(op, portIndex));
+  return rotatedPortCell(op, anchor, inputOffset(op, portIndex), turns);
 }
 
 export function outputPortCell(
   op: OpKey,
   anchor: { x: number; y: number; z: number },
   portIndex: number,
+  turns = 0,
 ): { x: number; y: number; z: number } {
-  return portCell(anchor, outputOffset(op, portIndex));
+  return rotatedPortCell(op, anchor, outputOffset(op, portIndex), turns);
 }
 
-export function inputPortRot(op: OpKey, portIndex: number): number {
-  return portRot(inputOffset(op, portIndex));
+export function inputPortRot(op: OpKey, portIndex: number, turns = 0): number {
+  const r = portRot(inputOffset(op, portIndex));
+  return turns ? yawRot(r, turns) : r;
 }
 
-export function outputPortRot(op: OpKey, portIndex: number): number {
-  return portRot(outputOffset(op, portIndex));
+export function outputPortRot(op: OpKey, portIndex: number, turns = 0): number {
+  const r = portRot(outputOffset(op, portIndex));
+  return turns ? yawRot(r, turns) : r;
 }
 
 /**
@@ -208,10 +272,10 @@ export function portInto(off: PortOffset): PortFace {
   return off.dz <= -1 ? "+Z" : "-Z";
 }
 
-export function inputPortInto(op: OpKey, portIndex: number): PortFace {
-  return portInto(inputOffset(op, portIndex));
+export function inputPortInto(op: OpKey, portIndex: number, turns = 0): PortFace {
+  return rotFace(portInto(inputOffset(op, portIndex)), turns);
 }
 
-export function outputPortInto(op: OpKey, portIndex: number): PortFace {
-  return portInto(outputOffset(op, portIndex));
+export function outputPortInto(op: OpKey, portIndex: number, turns = 0): PortFace {
+  return rotFace(portInto(outputOffset(op, portIndex)), turns);
 }

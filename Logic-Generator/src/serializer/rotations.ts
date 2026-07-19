@@ -108,3 +108,21 @@ export const ROT_UPRIGHT = 6;
  * rot 6 = −90° Y, rot 3 = +90° Y → 180° apart.
  */
 export const ROT_LOGIC = 3;
+
+/** One grid quarter-turn: +90° about +Y (maps +X→−Z on the circuit plane). */
+const YAW_QUARTER = ROTATIONS[3];
+
+/**
+ * Compose `quarterTurns` world +90°-Y steps onto a base orientation and return
+ * the matching {@link ROTATIONS} index (q ≅ −q). The local mesh fix cancels in
+ * the composition, so this is exact for any base. Sanity: yawRot(ROT_UPRIGHT, 2)
+ * === ROT_LOGIC, the documented 180°-apart pair.
+ */
+export function yawRot(base: number, quarterTurns: number): number {
+  let q = ROTATIONS[base] ?? ROTATIONS[ROT_IDENTITY];
+  const n = ((quarterTurns % 4) + 4) % 4;
+  for (let i = 0; i < n; i++) q = mulQuat(YAW_QUARTER, q);
+  const near = (r: Quaternion, s: 1 | -1) =>
+    r.every((v, i) => Math.abs(v - s * q[i]) < 1e-4);
+  return ROTATIONS.findIndex((r) => near(r, 1) || near(r, -1));
+}

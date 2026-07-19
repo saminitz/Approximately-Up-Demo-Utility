@@ -11,6 +11,7 @@ import {
 import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
 import { FIXTURES } from "./fixtures";
 import type { LaidOutGraph } from "./layout/layout";
+import { DEFAULT_ALGO, LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
 
 const EXAMPLES: { name: string; src: string }[] = [
   {
@@ -96,12 +97,13 @@ export default function App() {
   const [name, setName] = useState("My Logic");
   const [folder, setFolder] = useState("80 Controllers");
   const [emitCables, setEmitCables] = useState(true);
+  const [algo, setAlgo] = useState<LayoutAlgo>(DEFAULT_ALGO);
   const [lastExport, setLastExport] = useState<string | null>(null);
   // A calibration fixture takes over the viewer while selected; the formula
   // pipeline keeps running underneath, untouched.
   const [fixture, setFixture] = useState<{ name: string; laid: LaidOutGraph } | null>(null);
 
-  const { result, running } = usePipeline(src);
+  const { result, running } = usePipeline(src, algo);
   const shown = fixture ? fixture.laid : result?.ok ? result.laid : null;
 
   const doExport = (laid: LaidOutGraph, bpName: string, cables: boolean) => {
@@ -140,6 +142,22 @@ export default function App() {
             {EXAMPLES.map((ex) => (
               <button key={ex.name} onClick={() => setSrc(ex.src)} title={`Load "${ex.name}"`}>
                 {ex.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="section">
+          <label className="title">Layout</label>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            {(Object.keys(LAYOUT_ALGOS) as LayoutAlgo[]).map((k) => (
+              <button
+                key={k}
+                className={algo === k ? "primary" : undefined}
+                onClick={() => setAlgo(k)}
+                title={`Place blocks with the "${LAYOUT_ALGOS[k].label}" algorithm`}
+              >
+                {LAYOUT_ALGOS[k].label}
               </button>
             ))}
           </div>

@@ -1,8 +1,15 @@
 import { compileFormula } from "./compiler/compiler";
 import type { OpKey } from "./formula/catalog";
 import { FormulaError } from "./formula/tokens";
-import { layoutGraph, type LaidOutGraph, type LayoutOptions } from "./layout/layout";
+import type { LaidOutGraph } from "./layout/layout";
+import { DEFAULT_ALGO, LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
 import { PREFAB_TABLE } from "./serializer/prefabTable";
+
+/** UI → worker message. */
+export interface PipelineRequest {
+  src: string;
+  algo: LayoutAlgo;
+}
 
 export interface PipelineSuccess {
   ok: true;
@@ -29,11 +36,11 @@ export type PipelineResult = PipelineSuccess | PipelineFailure;
 
 export function runPipeline(
   src: string,
-  layoutOpts?: LayoutOptions,
+  algo: LayoutAlgo = DEFAULT_ALGO,
 ): PipelineResult {
   try {
     const graph = compileFormula(src);
-    const laid = layoutGraph(graph, layoutOpts);
+    const laid = LAYOUT_ALGOS[algo].run(graph);
 
     const used = new Set<OpKey>(laid.nodes.map((n) => n.op));
     const unknownOps = [...used].filter((k) => !PREFAB_TABLE[k].known).sort();

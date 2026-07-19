@@ -1,5 +1,5 @@
-import { runPipeline } from "./pipeline";
+import { runPipeline, type PipelineRequest } from "./pipeline";
 
-self.onmessage = (e: MessageEvent<string>) => {
-  self.postMessage(runPipeline(e.data));
+self.onmessage = (e: MessageEvent<PipelineRequest>) => {
+  self.postMessage(runPipeline(e.data.src, e.data.algo));
 };
