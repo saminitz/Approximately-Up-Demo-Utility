@@ -1,0 +1,253 @@
+import type { BlockGraph, BlockNode } from "../compiler/graph";
+import {
+  footprintForOp,
+  inputPortCell,
+  inputPortInto,
+  inputPortRot,
+  outputPortCell,
+  outputPortInto,
+  outputPortRot,
+} from "../catalog/ports";
+import type { CableCell } from "./cableShapes";
+import { route3DCables, type RouteEdge } from "./cableRoute";
+
+export interface Cell {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface CableRoute {
+  edgeId: string;
+  fromBlock: string;
+  toBlock: string;
+  cells: Cell[]; // grid path from source port to target port
+}
+
+export interface LaidOutGraph {
+  nodes: BlockNode[]; // same nodes, with `.cell` assigned
+  edges: BlockGraph["edges"];
+  routes: CableRoute[];
+  /** Cable cells with per-cell shape/type/trailing metadata (globally deduped;
+   * this is what the exporter writes). */
+  cableCells: CableCell[];
+  /** Per-edge ordered cable cells for rendering arm connectivity (not deduped). */
+  cableChains: { edgeId: string; cells: CableCell[] }[];
+  inputs: string[];
+  outputs: string[];
+  bounds: { cols: number; rows: number; maxX: number; maxZ: number };
+  /** Edge ids the router could not path even after retry sweeps. Absent when
+   * everything routed (the normal case). */
+  failedRoutes?: string[];
+}
+
+export interface LayoutOptions {
+  /** Grid cells between successive layers (leaves room for cable channels). */
+  colStep: number;
+  /** Grid cells between rows within a layer. */
+  rowStep: number;
+  /** Grid origin (in cells). */
+  originX: number;
+  /** Constant vertical coordinate of the circuit plane (game Y / up). */
+  originY: number;
+  originZ: number;
+}
+
+/**
+ * Base cell offset that places the generated circuit in the same grid region real
+ * authored controllers occupy (GT_REPORT_v2.md §4).
+ *
+ * Signal blocks in PD Target Distance spread on X and Z with Y held near 24
+ * (the horizontal circuit plane). We anchor at the low corner of that cluster.
+ */
+export const INTERIOR_BASE_CELL = { x: 200, y: 24, z: 200 } as const;
+
+export const DEFAULT_LAYOUT: LayoutOptions = {
+  colStep: 6,
+  // Clears a 4-tall block plus a cable channel between rows.
+  rowStep: 6,
+  originX: INTERIOR_BASE_CELL.x,
+  originY: INTERIOR_BASE_CELL.y,
+  originZ: INTERIOR_BASE_CELL.z,
+};
+
+/** Routing attempts; every second retry widens the grid steps by one cell.
+ * Same sweep as dense.ts: failed-first reorder before conceding more room. */
+const MAX_ATTEMPTS = 10;
+
+/**
+ * Layered, topological left-to-right layout on the game's X-Z circuit plane
+ * (Y constant). Cables are routed as orthogonal Manhattan paths between layers.
+ * Retries with failed edges routed first, then wider steps, until every edge
+ * routes; a residual failure is surfaced in `failedRoutes`.
+ */
+export function layoutGraph(
+  graph: BlockGraph,
+  opts: LayoutOptions = DEFAULT_LAYOUT,
+): LaidOutGraph {
+  let r = attempt(graph, opts, new Set());
+  for (let a = 1; a < MAX_ATTEMPTS && r.failed.length > 0; a++) {
+    const extra = (a >> 1) * 2; // widen by 2s: blocks may only sit on the 2x grid
+    r = attempt(
+      graph,
+      { ...opts, colStep: opts.colStep + extra, rowStep: opts.rowStep + extra },
+      // Only the LATEST failures get priority — an accumulated set dilutes it.
+      new Set(r.failed),
+    );
+  }
+  if (r.failed.length > 0) r.laid.failedRoutes = r.failed;
+  return r.laid;
+}
+
+function attempt(
+  graph: BlockGraph,
+  opts: LayoutOptions,
+  priority: ReadonlySet<string>,
+): { laid: LaidOutGraph; failed: string[] } {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const preds = new Map<string, string[]>();
+  const succs = new Map<string, string[]>();
+  for (const n of graph.nodes) {
+    preds.set(n.id, []);
+    succs.set(n.id, []);
+  }
+  for (const e of graph.edges) {
+    succs.get(e.from.blockId)!.push(e.to.blockId);
+    preds.get(e.to.blockId)!.push(e.from.blockId);
+  }
+
+  // --- Layer assignment (longest path from sources) --------------------------
+  const layer = new Map<string, number>();
+  const visiting = new Set<string>();
+  const computeLayer = (id: string): number => {
+    const cached = layer.get(id);
+    if (cached !== undefined) return cached;
+    if (visiting.has(id)) return 0; // guard against unexpected cycles
+    visiting.add(id);
+    const ps = preds.get(id)!;
+    let L = 0;
+    for (const p of ps) L = Math.max(L, computeLayer(p) + 1);
+    visiting.delete(id);
+    layer.set(id, L);
+    return L;
+  };
+  for (const n of graph.nodes) computeLayer(n.id);
+
+  // Force output terminals to the last layer for a tidy right edge.
+  const maxLayer = Math.max(0, ...graph.nodes.map((n) => layer.get(n.id)!));
+  for (const n of graph.nodes) {
+    if (n.op === "output") layer.set(n.id, maxLayer);
+  }
+
+  // --- Group by layer --------------------------------------------------------
+  const layers: string[][] = [];
+  for (const n of graph.nodes) {
+    const L = layer.get(n.id)!;
+    (layers[L] ??= []).push(n.id);
+  }
+  for (let L = 0; L < layers.length; L++) layers[L] ??= [];
+
+  // --- Ordering within layers: one barycenter pass to reduce crossings -------
+  const order = new Map<string, number>();
+  layers.forEach((ids) => ids.forEach((id, i) => order.set(id, i)));
+  for (let L = 1; L < layers.length; L++) {
+    const ids = layers[L];
+    const bary = (id: string): number => {
+      const ps = preds.get(id)!;
+      if (ps.length === 0) return order.get(id)!;
+      let s = 0;
+      for (const p of ps) s += order.get(p)!;
+      return s / ps.length;
+    };
+    ids.sort((a, b) => bary(a) - bary(b));
+    ids.forEach((id, i) => order.set(id, i));
+  }
+
+  // --- Assign grid cells (X = layers, Z = rows, Y = plane height) ------------
+  let maxRows = 0;
+  layers.forEach((ids, L) => {
+    maxRows = Math.max(maxRows, ids.length);
+    ids.forEach((id, row) => {
+      const node = byId.get(id)!;
+      node.cell = {
+        x: opts.originX + L * opts.colStep,
+        y: opts.originY,
+        z: opts.originZ + row * opts.rowStep,
+      };
+    });
+  });
+
+  // --- Route cables on the X-Z plane -----------------------------------------
+  // Each edge is an independent chain routed around blocks and other cables;
+  // crossings bridge over (see cableRoute.ts). Port cells carry the verified
+  // first-cable rot (Block List): 5 on the west face, 0 on the east face.
+  const routeEdges: RouteEdge[] = graph.edges.map((e) => {
+    const from = byId.get(e.from.blockId)!;
+    const to = byId.get(e.to.blockId)!;
+    const start = outputPortCell(from.op, from.cell!, e.from.port);
+    const end = inputPortCell(to.op, to.cell!, e.to.port);
+    return {
+      id: e.id,
+      start: { ...start, y: opts.originY },
+      end: { ...end, y: opts.originY },
+      startRot: outputPortRot(from.op, e.from.port),
+      endRot: inputPortRot(to.op, e.to.port),
+      startInto: outputPortInto(from.op, e.from.port),
+      endInto: inputPortInto(to.op, e.to.port),
+    };
+  });
+
+  // Blocks occupy a per-op footprint (2×2 or 2×4), anchor at the min corner; the
+  // router treats every footprint cell as an obstacle. Size is derived from the
+  // real port geometry (footprintForOp). Port-stub rotation on tall router/remap
+  // blocks is handled separately via the per-edge `into` (from the port offset).
+  // ponytail: footprint is axis-aligned (no block rotation). If a future
+  // placement path ever sets node rotation, swap w/h here by that rot.
+  const blockCells = graph.nodes.flatMap((n) => {
+    if (!n.cell) return [];
+    const { w, h } = footprintForOp(n.op);
+    const cells: Cell[] = [];
+    for (let dx = 0; dx < w; dx++)
+      for (let dz = 0; dz < h; dz++)
+        cells.push({ x: n.cell.x + dx, y: n.cell.y, z: n.cell.z + dz });
+    return cells;
+  });
+  // Edges that failed the previous sweep route FIRST — a port pocketed by its
+  // siblings' cables is only reachable before they route. Stable sort keeps
+  // the original edge order otherwise.
+  if (priority.size > 0)
+    routeEdges.sort(
+      (a, b) => (priority.has(b.id) ? 1 : 0) - (priority.has(a.id) ? 1 : 0),
+    );
+  const { cells: cableCells, flatPaths, chains, failed } = route3DCables(routeEdges, blockCells);
+
+  const routes: CableRoute[] = graph.edges.map((e) => ({
+    edgeId: e.id,
+    fromBlock: e.from.blockId,
+    toBlock: e.to.blockId,
+    cells: flatPaths.get(e.id) ?? [],
+  }));
+
+  const cableChains = graph.edges.map((e) => ({
+    edgeId: e.id,
+    cells: chains.get(e.id) ?? [],
+  }));
+
+  const cols = layers.length;
+  const maxX = opts.originX + (cols - 1) * opts.colStep + 1;
+  const maxZ = opts.originZ + (maxRows - 1) * opts.rowStep + 1;
+
+  return {
+    laid: {
+      nodes: graph.nodes,
+      edges: graph.edges,
+      routes,
+      cableCells,
+      cableChains,
+      inputs: graph.inputs,
+      outputs: graph.outputs,
+      bounds: { cols, rows: maxRows, maxX, maxZ },
+    },
+    failed,
+  };
+}

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Logic-Generator", "run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Logic-Generator", "run", "preview"],
+      "port": 4173,
+      "autoPort": true
+    }
+  ]
+}

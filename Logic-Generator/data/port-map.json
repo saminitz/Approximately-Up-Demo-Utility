@@ -1,0 +1,1195 @@
+{
+  "_source": "1845836d-08a7-4502-970a-61d528b29c6d Block List.bp",
+  "_bpmetaVersion": "0.1.139",
+  "_logicGeneratorVersion": "0.1.7",
+  "_parsedAt": "2026-07-13",
+  "_convention": "Cable chain length 1 = INPUT stub; length 2 = OUTPUT chain. Binary blocks: two +X len-1 cells = 2 inputs; stateful: -X len-2 = input.",
+  "_stats": {
+    "blocks": 28,
+    "cables": 103,
+    "cableChains": 47
+  },
+  "blocks": [
+    {
+      "order": 1,
+      "name": "Constant",
+      "scPrefab": "0x9fe80f5af364c2ec",
+      "opKey": "constant",
+      "structIdx": 5,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 260,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 0,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 2,
+      "name": "Logic Value",
+      "scPrefab": "0xe1efc8ed6895b620",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 256,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "name": "Logic Gate Not",
+      "scPrefab": "0x72696a5f8c4b74de",
+      "opKey": "not",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 252,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 4,
+      "name": "Addition Array",
+      "scPrefab": "0x3b80bdebfdb10fa9",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 246,
+        "rot": 3
+      },
+      "widthCells": 2,
+      "inputs": 0,
+      "outputs": 2,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 1
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "name": "Adder",
+      "scPrefab": "0x3b7bbce726d0cc7f",
+      "opKey": "add",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 242,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 6,
+      "name": "Subtractor",
+      "scPrefab": "0x1c97aba9f33d90c8",
+      "opKey": "sub",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 238,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 7,
+      "name": "Multiplier",
+      "scPrefab": "0x0407f3d568e89e48",
+      "opKey": "mul",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 234,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 8,
+      "name": "Divider",
+      "scPrefab": "0x00766e1e0f9c8699",
+      "opKey": "div",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 230,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 9,
+      "name": "Minimum",
+      "scPrefab": "0x5bd117aa5c9fdf0a",
+      "opKey": "min",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 226,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 10,
+      "name": "Maximum",
+      "scPrefab": "0x6d2fdb1b68703078",
+      "opKey": "max",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 222,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 11,
+      "name": "Logic Gate XOR",
+      "scPrefab": "0xeb8fe77ce46f3590",
+      "opKey": "xor",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 218,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 2,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 2,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 12,
+      "name": "Simple Threshold",
+      "scPrefab": "0x72a389e0f97da2d6",
+      "opKey": "threshold",
+      "structIdx": 15,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 214,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 13,
+      "name": "Joystick Splitter",
+      "scPrefab": "0x518fdaab8c071134",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 210,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 2,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 1
+        }
+      ]
+    },
+    {
+      "order": 14,
+      "name": "Remapper",
+      "scPrefab": "0xf45687f85cf62f59",
+      "opKey": "remap",
+      "structIdx": 20,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 204,
+        "rot": 3
+      },
+      "widthCells": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        },
+        {
+          "kind": "input",
+          "dx": 2,
+          "dy": 0,
+          "dz": 3,
+          "face": "+Z",
+          "cableRot": 0,
+          "chainLen": 1,
+          "portIndex": 0
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 15,
+      "name": "Data Router 2",
+      "scPrefab": "0x592905a5e74d8aaa",
+      "opKey": "router2",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 200,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 2,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 1
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 2,
+        "matches": true
+      }
+    },
+    {
+      "order": 16,
+      "name": "Data Router 4",
+      "scPrefab": "0x0124dacc6531029a",
+      "opKey": "router4",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 194,
+        "rot": 3
+      },
+      "widthCells": 2,
+      "inputs": 1,
+      "outputs": 4,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 3,
+          "face": "+Z",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 2,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 2
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 3,
+          "face": "+Z",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 3
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 4,
+        "matches": true
+      }
+    },
+    {
+      "order": 17,
+      "name": "Data Redirector 3 / Signal Router 3",
+      "scPrefab": "0x4224391ea20c8575",
+      "opKey": "signalRouter3",
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 188,
+        "rot": 3
+      },
+      "widthCells": 2,
+      "inputs": 1,
+      "outputs": 3,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": -3,
+          "face": "-Z",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": -3,
+          "face": "-Z",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 2,
+          "portIndex": 1
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 3,
+          "face": "+Z",
+          "cableRot": 0,
+          "chainLen": 2,
+          "portIndex": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 3,
+        "matches": true
+      }
+    },
+    {
+      "order": 18,
+      "name": "Differentiator",
+      "scPrefab": "0xa198e2ba8fe8844f",
+      "opKey": "deriv",
+      "structIdx": 31,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 184,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 1,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 1,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 19,
+      "name": "Memory",
+      "scPrefab": "0x876ad2fe23bf2867",
+      "opKey": "memory",
+      "structIdx": 32,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 180,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 20,
+      "name": "Accumulator",
+      "scPrefab": "0x5e3e015590584dcc",
+      "opKey": "integ",
+      "structIdx": 33,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 176,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "input",
+          "dx": -1,
+          "dy": 0,
+          "dz": 0,
+          "face": "-X",
+          "cableRot": 5,
+          "chainLen": 2,
+          "portIndex": 0
+        },
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 1,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 21,
+      "name": "Wireless Transmitter",
+      "scPrefab": "0xfb42bddabfe173ed",
+      "opKey": "input",
+      "structIdx": 10,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 172,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ],
+      "validation": {
+        "expectedInputs": 0,
+        "expectedOutputs": 1,
+        "matches": true
+      }
+    },
+    {
+      "order": 22,
+      "name": "Inclinometer",
+      "scPrefab": "0xae0669dbe99d036f",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 168,
+        "rot": 11
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 23,
+      "name": "Rotometer",
+      "scPrefab": "0x955ad7bed99d6821",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 164,
+        "rot": 11
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 24,
+      "name": "Altimeter",
+      "scPrefab": "0x815199777b4f9cdb",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 160,
+        "rot": 6
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 25,
+      "name": "Trajectory Curvature Meter",
+      "scPrefab": "0xd32d617963da17c3",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 156,
+        "rot": 6
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 26,
+      "name": "Velocity Meter",
+      "scPrefab": "0x550e55971db328fe",
+      "opKey": null,
+      "structIdx": 30,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 152,
+        "rot": 6
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 27,
+      "name": "Accelerometer",
+      "scPrefab": "0x9a4e18286af91651",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 148,
+        "rot": 6
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 0,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    },
+    {
+      "order": 28,
+      "name": "Distance Meter",
+      "scPrefab": "0xdf2cba30ff100988",
+      "opKey": null,
+      "structIdx": 0,
+      "anchor": {
+        "x": 212,
+        "y": 0,
+        "z": 144,
+        "rot": 3
+      },
+      "widthCells": 1,
+      "inputs": 0,
+      "outputs": 1,
+      "ports": [
+        {
+          "kind": "output",
+          "dx": 2,
+          "dy": 0,
+          "dz": 1,
+          "face": "+X",
+          "cableRot": 0,
+          "chainLen": 2
+        }
+      ]
+    }
+  ]
+}
