@@ -12,8 +12,6 @@ const SCENE_VEC: Record<SceneDir, THREE.Vector3> = {
 export const CABLE_RADIUS = 0.09;
 /** Half a cell + a hair, so neighbouring cells' tube ends overlap instead of gapping. */
 const REACH = 0.52;
-/** Pulls the curve's control points in toward the centre, rounding the corner. */
-const BEND = 0.18;
 
 // ponytail: cache keyed by the arm set — a circuit has hundreds of cells but only
 // a dozen distinct shapes. Geometries are never disposed; the cache is process-wide
@@ -24,10 +22,11 @@ const cache = new Map<string, THREE.BufferGeometry[]>();
  * The meshes for one cable cell: a tube from the cell centre out to each arm.
  *
  * Exactly two arms (straight run or L-bend) become ONE tube swept along a
- * Catmull-Rom through both arm tips — collinear arms give a straight rod, a
- * perpendicular pair gives a real rounded elbow. Any other count (endpoint stub,
- * tee, cross, bridge ramp) gets one straight tube per arm plus a sphere at the
- * centre to fill the joint.
+ * quadratic bezier between the arm tips with the cell centre as control point —
+ * collinear arms give a straight rod, a perpendicular pair sweeps one full-cell
+ * arc (the game's in-block L bend). Any other count (endpoint stub, tee, cross,
+ * bridge ramp) gets one straight tube per arm plus a sphere at the centre to
+ * fill the joint.
  */
 export function cableGeoms(dirs: readonly SceneDir[]): THREE.BufferGeometry[] {
   const arms = [...new Set(dirs)];
@@ -38,10 +37,12 @@ export function cableGeoms(dirs: readonly SceneDir[]): THREE.BufferGeometry[] {
   const at = (d: SceneDir, s: number) => SCENE_VEC[d].clone().multiplyScalar(s);
   let geoms: THREE.BufferGeometry[];
   if (arms.length === 2) {
+    // Tangents at both ends run along the arm axes, so neighbouring cells'
+    // tubes continue seamlessly into the arc.
     const [a, b] = arms;
-    const curve = new THREE.CatmullRomCurve3([
-      at(a, REACH), at(a, BEND), new THREE.Vector3(), at(b, BEND), at(b, REACH),
-    ]);
+    const curve = new THREE.QuadraticBezierCurve3(
+      at(a, REACH), new THREE.Vector3(), at(b, REACH),
+    );
     geoms = [new THREE.TubeGeometry(curve, 24, CABLE_RADIUS, 10, false)];
   } else {
     geoms = arms.map((d) =>

@@ -295,8 +295,11 @@ export function route3DCables(
       const isEnd = i === 0 || i === n - 1;
       if (role[i] === "span") entries.push({ x: c.x, y: y + 1, z: c.z, kind: "span", isEnd });
       else if (role[i] === "up" || role[i] === "down") {
-        entries.push({ x: c.x, y, z: c.z, kind: "foot", isEnd });
-        entries.push({ x: c.x, y: y + 1, z: c.z, kind: "top", isEnd });
+        // Keep the chain in travel order: an up-ramp is foot→top, a down-ramp
+        // top→foot. Renderers rely on cells[0]/cells[last] being the true ends.
+        const foot = { x: c.x, y, z: c.z, kind: "foot" as Kind, isEnd };
+        const top = { x: c.x, y: y + 1, z: c.z, kind: "top" as Kind, isEnd };
+        entries.push(...(role[i] === "down" ? [top, foot] : [foot, top]));
       } else entries.push({ x: c.x, y, z: c.z, kind: isEnd ? "port" : "flat", isEnd });
     }
     const chain: RoutedCableCell[] = [];

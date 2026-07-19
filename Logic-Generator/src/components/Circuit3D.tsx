@@ -3,13 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Text, Billboard } from "@react-three/drei";
 import type { BlockNode } from "../compiler/graph";
 import { OPS, type OpCategory, type OpKey } from "../formula/catalog";
-import {
-  footprintForOp,
-  inputPortCell,
-  inputPortInto,
-  outputPortCell,
-  outputPortInto,
-} from "../catalog/ports";
+import { footprintForOp, inputPortCell, inputPortInto, outputPortCell, outputPortInto } from "../catalog/ports";
 import type { LaidOutGraph } from "../layout/layout";
 import { cableDirsForRot } from "../layout/cableShapes";
 import { DIR_TO_SCENE, sceneQuat as rotQuat, toScene, type Vec3Tuple } from "../gameFrame";
@@ -23,9 +17,12 @@ import { cableGeoms } from "./cableGeom";
 // just past the cell boundary, so a chain's cells meet as one continuous tube.
 type Dir = "+X" | "-X" | "+Y" | "-Y" | "+Z" | "-Z";
 const DIRS: ReadonlyArray<readonly [Dir, number, number, number]> = [
-  ["+X", 1, 0, 0], ["-X", -1, 0, 0],
-  ["+Y", 0, 1, 0], ["-Y", 0, -1, 0],
-  ["+Z", 0, 0, 1], ["-Z", 0, 0, -1],
+  ["+X", 1, 0, 0],
+  ["-X", -1, 0, 0],
+  ["+Y", 0, 1, 0],
+  ["-Y", 0, -1, 0],
+  ["+Z", 0, 0, 1],
+  ["-Z", 0, 0, -1],
 ];
 
 const CABLE_COLOR = "#4b93f8";
@@ -52,12 +49,32 @@ const CATEGORY_COLOR: Record<OpCategory, string> = {
 // Top-face glyph, where a recognizable math symbol exists. Ops without one just
 // carry their floating label.
 const SYMBOL: Partial<Record<OpKey, string>> = {
-  add: "+", sub: "−", mul: "×", div: "÷", mod: "%", pow: "xⁿ",
-  min: "min", max: "max", abs: "|x|", sqrt: "√", exp: "eˣ", log: "ln",
-  sin: "sin", cos: "cos", tan: "tan", atan2: "atan2",
-  not: "¬", xor: "⊕", condition: "?",
-  deriv: "d/dt", integ: "∫", memory: "M",
-  threshold: "⎍", constant: "k", input: "▸", output: "◉",
+  add: "+",
+  sub: "−",
+  mul: "×",
+  div: "÷",
+  mod: "%",
+  pow: "xⁿ",
+  min: "min",
+  max: "max",
+  abs: "|x|",
+  sqrt: "√",
+  exp: "eˣ",
+  log: "ln",
+  sin: "sin",
+  cos: "cos",
+  tan: "tan",
+  atan2: "atan2",
+  not: "¬",
+  xor: "⊕",
+  condition: "?",
+  deriv: "d/dt",
+  integ: "∫",
+  memory: "M",
+  threshold: "⎍",
+  constant: "k",
+  input: "▸",
+  output: "◉",
 };
 
 function blockColor(node: BlockNode): string {
@@ -92,12 +109,19 @@ export function Circuit3D({ laid }: Circuit3DProps) {
   // Center the whole scene on the model centroid so it sits near the origin
   // regardless of the game-grid anchor (~200,24,200).
   const { center, radius, blocks, cables, loose } = useMemo(() => {
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
     const acc = (x: number, y: number, z: number) => {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
     };
 
     const blocks = laid.nodes
@@ -153,8 +177,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       const last = chain.cells.length - 1;
       chain.cells.forEach((c, idx) => {
         acc(c.x, c.y, c.z);
-        const dirs = DIRS.filter(([, dx, dy, dz]) => set.has(cellKey(c.x + dx, c.y + dy, c.z + dz)))
-          .map(([d]) => d);
+        const dirs = DIRS.filter(([, dx, dy, dz]) => set.has(cellKey(c.x + dx, c.y + dy, c.z + dz))).map(([d]) => d);
         if (idx === 0 && startInto) dirs.push(startInto);
         if (idx === last && endInto) dirs.push(endInto);
         // A chain end with no block to enter is NOT a flat stub: every measured
@@ -183,15 +206,16 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         return { x: c.x, y: c.y, z: c.z, rot: c.rot, dirs, label: `${c.rot}: ${dirs.join(" ")}` };
       });
 
-    if (!Number.isFinite(minX)) { minX = maxX = minY = maxY = minZ = maxZ = 0; }
+    if (!Number.isFinite(minX)) {
+      minX = maxX = minY = maxY = minZ = maxZ = 0;
+    }
     const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 };
     const radius = Math.max(6, maxX - minX, maxZ - minZ, maxY - minY);
     return { center, radius, blocks, cables, loose };
   }, [laid]);
 
   // World = (model cell − centroid), transposed into the game's frame.
-  const world = (x: number, y: number, z: number): Vec3Tuple =>
-    toScene(x - center.x, y - center.y, z - center.z);
+  const world = (x: number, y: number, z: number): Vec3Tuple => toScene(x - center.x, y - center.y, z - center.z);
   const wy = (y: number) => y - center.y;
 
   const dist = radius * 1.6;
@@ -204,7 +228,10 @@ export function Circuit3D({ laid }: Circuit3DProps) {
       <color attach="background" args={["#0e1116"]} />
       <ambientLight intensity={0.7} />
       <directionalLight position={[dist, dist * 2, dist]} intensity={0.8} />
-      <gridHelper args={[radius * 3, Math.ceil(radius * 3), "#30363d", "#21262d"]} position={[0, wy(laid.nodes[0]?.cell?.y ?? 0) - 0.5, 0]} />
+      <gridHelper
+        args={[radius * 3, Math.ceil(radius * 3), "#30363d", "#21262d"]}
+        position={[0, wy(laid.nodes[0]?.cell?.y ?? 0) - 0.5, 0]}
+      />
 
       {/* Game axes at the scene centre: red +X, green +Y, blue +Z — the same axes
           the "Axis markers" fixture spells out with block values. */}
@@ -212,8 +239,7 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         <axesHelper args={[3]} />
         {(["+X", "+Y", "+Z"] as const).map((label, i) => (
           <Billboard key={label} position={[i === 0 ? 3.4 : 0, i === 1 ? 3.4 : 0, i === 2 ? 3.4 : 0]}>
-            <Text fontSize={0.4} color={["#ff6b6b", "#51cf66", "#4b93f8"][i]}
-              anchorX="center" anchorY="middle">
+            <Text fontSize={0.4} color={["#ff6b6b", "#51cf66", "#4b93f8"][i]} anchorX="center" anchorY="middle">
               {label}
             </Text>
           </Billboard>
@@ -230,9 +256,14 @@ export function Circuit3D({ laid }: Circuit3DProps) {
             <meshStandardMaterial color={b.color} />
           </mesh>
           {b.symbol && (
-            <Text position={[0, 0.51, 0]} rotation={[-Math.PI / 2, 0, Math.PI]}
-              fontSize={Math.min(b.w, b.h) * 0.6} color="#0e1116"
-              anchorX="center" anchorY="middle">
+            <Text
+              position={[0, 0.51, 0]}
+              rotation={[-Math.PI / 2, 0, Math.PI]}
+              fontSize={Math.min(b.w, b.h) * 0.6}
+              color="#0e1116"
+              anchorX="center"
+              anchorY="middle"
+            >
               {b.symbol}
             </Text>
           )}
@@ -247,8 +278,14 @@ export function Circuit3D({ laid }: Circuit3DProps) {
 
       {blocks.map((b) => (
         <Billboard key={`lbl-${b.id}`} position={world(b.cx, b.cy + 0.8, b.cz)}>
-          <Text fontSize={0.35} color="#e6edf3" anchorX="center" anchorY="bottom"
-            outlineWidth={0.02} outlineColor="#0e1116">
+          <Text
+            fontSize={0.35}
+            color="#e6edf3"
+            anchorX="center"
+            anchorY="bottom"
+            outlineWidth={0.02}
+            outlineColor="#0e1116"
+          >
             {b.label}
           </Text>
         </Billboard>
@@ -269,8 +306,14 @@ export function Circuit3D({ laid }: Circuit3DProps) {
         <group key={`loose-${i}`} position={world(c.x, c.y, c.z)}>
           <Cable dirs={c.dirs} />
           <Billboard position={[0, 0.9, 0]}>
-            <Text fontSize={0.3} color="#e6edf3" anchorX="center" anchorY="bottom"
-              outlineWidth={0.02} outlineColor="#0e1116">
+            <Text
+              fontSize={0.3}
+              color="#e6edf3"
+              anchorX="center"
+              anchorY="bottom"
+              outlineWidth={0.02}
+              outlineColor="#0e1116"
+            >
               {c.label}
             </Text>
           </Billboard>
