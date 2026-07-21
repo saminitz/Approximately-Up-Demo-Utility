@@ -10,11 +10,11 @@ import type { PipelineResult } from "./pipeline";
 import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
 import { downloadBytes, exportBlueprintZip } from "./serializer/exportZip";
 import {
+  clampWidth,
   collision,
   deleteBlueprint,
   draftOf,
   exampleDraft,
-  clampWidth,
   isDirty,
   loadAll,
   loadDraft,
@@ -35,12 +35,18 @@ const ALL_EXAMPLES: { name: string; src: string }[] = [
   {
     name: "PD controller",
     src: `// PD controller: named vars become input/output blocks.
+Kp = 0.002
+Kd = 0.0003
 error = target - position
 control = Kp * error + Kd * deriv(error)`,
   },
   {
     name: "PID controller",
-    src: `error = target - position
+    src: `// PID controller: named vars become input/output blocks.
+Kp = 0.002
+Ki = 0.0001
+Kd = 0.0003
+error = target - position
 control = Kp*error + Ki*integral(error) + Kd*deriv(error)`,
   },
   {
@@ -49,19 +55,6 @@ control = Kp*error + Ki*integral(error) + Kd*deriv(error)`,
 damp = Kd * deriv(altitude)
 thrust = clamp0 + Kp * error - damp
 clamp0 = 0.5`,
-  },
-  {
-    name: "Hover hold (any ship, any planet)",
-    src: `// Hover hold from one up-facing Accelerometer. No mass, no thrust
-// rating, no gravity, no ground distance. Closed loop is
-//   s^2 + a*Kp*s + a*Ki = 0   with  a = maxThrust/mass > 0
-// so it is stable for ANY a: the Ki accumulator learns the hover
-// throttle on its own. Tune Kp/Ki for damping, not for stability.
-// vTarget = 0 to hold, > 0 to climb at a fixed rate.
-vUp   = integral(aUp)
-vErr  = vTarget - vUp
-cmd   = Kp*vErr + Ki*integral(vErr)
-throt = min(1, max(0, cmd))`,
   },
   {
     name: "Vector magnitude",
@@ -157,8 +150,7 @@ export default function App() {
 
   const dirty = isDirty(draft, saved, EXAMPLES);
   /** Nothing may replace the editor contents without the user's blessing. */
-  const mayReplace = () =>
-    !dirty || confirm(`Discard unsaved changes${name.trim() ? ` to “${name.trim()}”` : ""}?`);
+  const mayReplace = () => !dirty || confirm(`Discard unsaved changes${name.trim() ? ` to “${name.trim()}”` : ""}?`);
 
   const onSave = async () => {
     const trimmed = name.trim();
@@ -363,11 +355,7 @@ export default function App() {
           <label className="title">Export</label>
           <div className="toggles">
             <label>
-              <input
-                type="checkbox"
-                checked={emitCables}
-                onChange={(e) => patch({ emitCables: e.target.checked })}
-              />
+              <input type="checkbox" checked={emitCables} onChange={(e) => patch({ emitCables: e.target.checked })} />
               Include visible cables (experimental)
             </label>
           </div>

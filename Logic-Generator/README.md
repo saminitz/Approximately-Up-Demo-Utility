@@ -150,16 +150,6 @@ and parses to the exact byte**, but is *best-effort* for in-game correctness.
 
 ## Changelog
 
-### 0.1.10
-
-- **Example:** "Hover hold (any ship, any planet)" — vertical-velocity hold from a
-  single up-facing Accelerometer. Mass, max thrust and gravity are never inputs:
-  the loop is `s² + α·Kp·s + α·Ki = 0` with `α = maxThrust/mass > 0`, so every
-  coefficient is positive for any α and the `Ki` accumulator converges on the hover
-  throttle by itself. 16 blocks, all with confirmed prefab hashes.
-- Tests: the example compiles, exposes only `aUp`/`vTarget`/`Kp`/`Ki`, and uses 2
-  accumulators.
-
 ### 0.1.9
 
 - **Pipeline:** runs in a Web Worker (`pipeline.worker.ts`), off the main thread.
