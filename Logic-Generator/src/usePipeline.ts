@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PipelineRequest, PipelineResult } from "./pipeline";
 import type { LayoutAlgo } from "./layout/strategies";
+import { ALL_BLOCKS } from "./flags";
 
 /** Quiet time after the last edit before a run starts. */
 const DEBOUNCE_MS = 400;
@@ -28,7 +29,7 @@ export function usePipeline(src: string, algo: LayoutAlgo) {
         setResult(e.data);
         setRunning(false);
       };
-      w.postMessage({ src, algo } satisfies PipelineRequest);
+      w.postMessage({ src, algo, allBlocks: ALL_BLOCKS } satisfies PipelineRequest);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [src, algo]);

@@ -3,7 +3,8 @@ import "./App.css";
 import { Circuit3D } from "./components/Circuit3D";
 import type { PipelineResult } from "./pipeline";
 import { usePipeline } from "./usePipeline";
-import { OPS } from "./formula/catalog";
+import { DEMO_UNAVAILABLE, OPS } from "./formula/catalog";
+import { ALL_BLOCKS, DEBUG } from "./flags";
 import {
   downloadBytes,
   exportBlueprintZip,
@@ -13,7 +14,7 @@ import { FIXTURES } from "./fixtures";
 import type { LaidOutGraph } from "./layout/layout";
 import { DEFAULT_ALGO, LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
 
-const EXAMPLES: { name: string; src: string }[] = [
+const ALL_EXAMPLES: { name: string; src: string }[] = [
   {
     name: "PD controller",
     src: `// PD controller: named vars become input/output blocks.
@@ -89,8 +90,13 @@ const LEGEND: { label: string; color: string }[] = [
   { label: "constant", color: "#94a3b8" },
 ];
 
-// `?debug` or `#debug` — hash form also works from file:// static builds.
-const DEBUG = /(^|[?&#])debug(&|=|$)/.test(location.search + location.hash);
+// Examples built on blocks the demo lacks would just fail to compile.
+const DISABLED_FN = new RegExp(
+  `\\b(${[...DEMO_UNAVAILABLE].flatMap((k) => OPS[k].fnNames ?? []).join("|")})\\s*\\(`,
+);
+const EXAMPLES = ALL_BLOCKS
+  ? ALL_EXAMPLES
+  : ALL_EXAMPLES.filter((e) => !DISABLED_FN.test(e.src));
 
 export default function App() {
   const [src, setSrc] = useState(EXAMPLES[0].src);

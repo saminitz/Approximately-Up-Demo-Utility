@@ -106,7 +106,7 @@ describe("layoutDense", () => {
     ["6dof", SIXDOF],
     ["vecmag", "speed = sqrt(vx*vx + vy*vy + vz*vz)"],
   ])("produces a valid circuit for %s", (_name, src) => {
-    const laid = layoutDense(compileFormula(src));
+    const laid = layoutDense(compileFormula(src, true));
     validate(laid);
     // rot, when set, is a valid ROTATIONS index consistent with turns
     for (const n of laid.nodes) {
@@ -124,7 +124,7 @@ describe("layoutDense", () => {
     // Guards the shape search: before it, 6dof cabled 843 cells at gap 1 /
     // aspect 1.3. Anything back near that means the search stopped scoring by
     // cable cost (or stopped running). Loose enough to survive router tweaks.
-    const laid = layoutDense(compileFormula(SIXDOF));
+    const laid = layoutDense(compileFormula(SIXDOF, true));
     expect(laid.cableCells.length).toBeLessThan(700);
   });
 

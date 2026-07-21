@@ -21,6 +21,13 @@ describe("compiler", () => {
     expect(g.edges.filter((e) => e.to.blockId === t[0].id)).toHaveLength(1);
   });
 
+  it("rejects demo-unavailable blocks unless allBlocks is set", () => {
+    expect(() => compileFormula("y = sin(x)")).toThrow(/not available in the game's demo/);
+    expect(() => compileFormula("y = x ^ 2")).toThrow(/not available in the game's demo/); // ^ -> Pow
+    expect(compileFormula("y = sin(x)", true).nodes.some((n) => n.op === "sin")).toBe(true);
+    expect(compileFormula("y = x ^ 2", true).nodes.some((n) => n.op === "pow")).toBe(true);
+  });
+
   it("rejects a non-literal threshold level", () => {
     expect(() => compileFormula("y = threshold(x, k)")).toThrow(/literal number/);
   });

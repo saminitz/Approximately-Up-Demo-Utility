@@ -9,6 +9,8 @@ import { PREFAB_TABLE } from "./serializer/prefabTable";
 export interface PipelineRequest {
   src: string;
   algo: LayoutAlgo;
+  /** Allow blocks the game's demo build lacks (`?allblocks`). */
+  allBlocks: boolean;
 }
 
 export interface PipelineSuccess {
@@ -37,9 +39,10 @@ export type PipelineResult = PipelineSuccess | PipelineFailure;
 export function runPipeline(
   src: string,
   algo: LayoutAlgo = DEFAULT_ALGO,
+  allBlocks = false,
 ): PipelineResult {
   try {
-    const graph = compileFormula(src);
+    const graph = compileFormula(src, allBlocks);
     const laid = LAYOUT_ALGOS[algo].run(graph);
 
     const used = new Set<OpKey>(laid.nodes.map((n) => n.op));

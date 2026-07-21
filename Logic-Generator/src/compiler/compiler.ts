@@ -1,5 +1,5 @@
 import type { Assignment, Expr } from "../formula/ast";
-import { FN_TO_OP, OPS, type OpKey } from "../formula/catalog";
+import { DEMO_UNAVAILABLE, FN_TO_OP, OPS, type OpKey } from "../formula/catalog";
 import { parseFormula } from "../formula/parser";
 import { FormulaError } from "../formula/tokens";
 import type { BlockGraph, BlockNode, Edge } from "./graph";
@@ -18,12 +18,12 @@ const BINOP_TO_OP: Record<string, OpKey> = {
  * Lower a parsed formula program into a block graph with common-subexpression
  * sharing and auto-generated input/output terminal blocks.
  */
-export function compileFormula(src: string): BlockGraph {
+export function compileFormula(src: string, allBlocks = false): BlockGraph {
   const program = parseFormula(src);
-  return compileProgram(program.assignments);
+  return compileProgram(program.assignments, allBlocks);
 }
 
-function compileProgram(assignments: Assignment[]): BlockGraph {
+function compileProgram(assignments: Assignment[], allBlocks: boolean): BlockGraph {
   const assigned = new Map<string, Expr>();
   for (const a of assignments) {
     if (assigned.has(a.name)) {
@@ -143,7 +143,7 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
         const sig = signature(op, [l.sig, r.sig]);
         const hit = cse.get(sig);
         if (hit) return { id: hit, sig };
-        const id = makeOpNode(op);
+        const id = makeOpNode(op, [], expr.pos);
         connect(l.id, 0, id, 0);
         connect(r.id, 0, id, 1);
         cse.set(sig, id);
@@ -171,7 +171,7 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
         ]);
         const hit = cse.get(sig);
         if (hit) return { id: hit, sig };
-        const id = makeOpNode(op, params);
+        const id = makeOpNode(op, params, expr.pos);
         loweredArgs.forEach((a, i) => connect(a.id, 0, id, i));
         cse.set(sig, id);
         return { id, sig };
@@ -179,8 +179,16 @@ function compileProgram(assignments: Assignment[]): BlockGraph {
     }
   };
 
-  const makeOpNode = (op: OpKey, params: number[] = []): string => {
+  const makeOpNode = (op: OpKey, params: number[] = [], pos = 0): string => {
     const spec = OPS[op];
+    // Single choke point for every op the user can write — covers calls and the
+    // `^` operator (Pow) alike.
+    if (!allBlocks && DEMO_UNAVAILABLE.has(op)) {
+      throw new FormulaError(
+        `'${spec.label}' is not available in the game's demo. Add '?allblocks' to the URL to use it anyway.`,
+        pos,
+      );
+    }
     return addNode({
       op,
       label: params.length

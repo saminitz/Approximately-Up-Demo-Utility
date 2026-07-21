@@ -134,6 +134,25 @@ export const OPS: Record<OpKey, OpSpec> = {
   signalRouter3: { key: "signalRouter3", label: "Signal Router 3", category: "routing", inputs: ["in"], outputs: ["out1", "out2", "out3"], syntax: "internal" },
 };
 
+/**
+ * Blocks the game's demo build does not ship. Rejected by the compiler unless
+ * the `?allblocks` URL flag is set (see `src/flags.ts`).
+ */
+export const DEMO_UNAVAILABLE: ReadonlySet<OpKey> = new Set<OpKey>([
+  "abs",
+  "atan2",
+  "condition",
+  "cos",
+  "exp",
+  "log",
+  "mod",
+  "pow",
+  "sin",
+  "sqrt",
+  "tan",
+  "tanh",
+]);
+
 /** Map a formula function name to its OpKey (or undefined if unknown). */
 export const FN_TO_OP: Record<string, OpKey> = (() => {
   const m: Record<string, OpKey> = {};

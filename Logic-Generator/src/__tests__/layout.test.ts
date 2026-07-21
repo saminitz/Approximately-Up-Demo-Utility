@@ -215,7 +215,7 @@ describe("cable orientation (rot in _gt)", () => {
   });
 
   it("routes every edge of the 6-DOF stabilizer (retry sweep)", () => {
-    const laid = layoutGraph(compileFormula(SIX_DOF));
+    const laid = layoutGraph(compileFormula(SIX_DOF, true));
     expect(laid.failedRoutes).toBeUndefined();
     for (const r of laid.routes) {
       expect(r.cells.length, `edge ${r.edgeId} has no route`).toBeGreaterThan(0);
