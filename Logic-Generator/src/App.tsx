@@ -446,9 +446,12 @@ export default function App() {
             ))}
           </div>
           <div className="spacer" />
-          <span className="footnote">
-            cables bend as in-game (L within a block) · drag orbit · scroll zoom · right-drag pan
-          </span>
+          <span className="footnote">drag orbit · scroll zoom · right-drag pan</span>
+          <img
+            className="hits"
+            src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fsaminitz.github.io%2FApproximately-Up-Demo-Utility%2FLogic-Generator%2F&label=Visitor+Count&icon=people&color=%2358a6ff&message=&style=flat-square&tz=UTC"
+            alt="Visitor Count"
+          />
         </div>
         <div className="canvas-view">
           {shown ? (

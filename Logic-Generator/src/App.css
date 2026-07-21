@@ -43,6 +43,11 @@
   color: var(--muted);
   font-size: 12.5px;
 }
+.brand .hits {
+  display: block;
+  margin-top: 8px;
+  opacity: 0.85;
+}
 
 .section {
   display: flex;
