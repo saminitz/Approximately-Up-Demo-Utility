@@ -198,6 +198,26 @@
   text-align: center;
 }
 
+.syntax > summary {
+  cursor: pointer;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.syntax .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.syntax .chips code {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
 .footnote {
   font-size: 11px;
   color: var(--muted);

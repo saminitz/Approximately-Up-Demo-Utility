@@ -3,7 +3,7 @@ import "./App.css";
 import { Circuit3D } from "./components/Circuit3D";
 import type { PipelineResult } from "./pipeline";
 import { usePipeline } from "./usePipeline";
-import { DEMO_UNAVAILABLE, OPS } from "./formula/catalog";
+import { DEMO_UNAVAILABLE, OPS, type OpKey } from "./formula/catalog";
 import { ALL_BLOCKS, DEBUG } from "./flags";
 import {
   downloadBytes,
@@ -90,6 +90,15 @@ const LEGEND: { label: string; color: string }[] = [
   { label: "constant", color: "#94a3b8" },
 ];
 
+const enabled = (k: OpKey) => ALL_BLOCKS || !DEMO_UNAVAILABLE.has(k);
+
+// Reference card: every operator/function the compiler accepts right now.
+const OPERATORS = ["a + b", "a - b", "a * b", "a / b", "-a", ...(enabled("pow") ? ["a ^ b"] : [])];
+const FUNCTIONS = Object.values(OPS)
+  .filter((s) => s.fnNames && enabled(s.key))
+  .map((s) => `${s.fnNames!.join("/")}(${[...s.inputs, ...(s.params ?? [])].join(", ")})`)
+  .sort();
+
 // Examples built on blocks the demo lacks would just fail to compile.
 const DISABLED_FN = new RegExp(
   `\\b(${[...DEMO_UNAVAILABLE].flatMap((k) => OPS[k].fnNames ?? []).join("|")})\\s*\\(`,
@@ -152,6 +161,28 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        <details className="section syntax">
+          <summary>Syntax reference</summary>
+          <p className="footnote">
+            One assignment per line: <code>name = expression</code>. A name that is
+            never assigned becomes an input block, a name nothing else reads becomes
+            an output. <code>//</code> starts a comment. Arguments after the wired
+            inputs (remap bounds, threshold level) must be literal numbers — they are
+            stored on the block itself.
+          </p>
+          <div className="chips">
+            {[...OPERATORS, ...FUNCTIONS].map((s) => (
+              <code key={s}>{s}</code>
+            ))}
+          </div>
+          {!ALL_BLOCKS && (
+            <p className="footnote">
+              Blocks the game’s demo does not ship are hidden. Add{" "}
+              <code>?allblocks</code> to the URL to use them anyway.
+            </p>
+          )}
+        </details>
 
         <div className="section">
           <label className="title">Layout</label>
