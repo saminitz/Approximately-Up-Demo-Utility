@@ -61,6 +61,33 @@ clamp0 = 0.5`,
     src: `speed = sqrt(vx*vx + vy*vy + vz*vz)`,
   },
   {
+    name: "Battery & flight readout",
+    src: `// Cockpit display driver: charge bar, endurance, charge-rate bar,
+// peak draw, warning lamps. Uses every block the demo ships — + - * / min max
+// not xor deriv integral memory remap threshold — plus the routers the
+// compiler adds wherever a signal fans out.
+
+netDraw   = draw - gen                     // amps out minus amps generated
+spent     = integral(netDraw)
+stored    = max(capacity - spent, 0)
+frac      = stored / capacity
+chargeBar = remap(frac, 0, 1, 0, 100)      // % for a bar gauge
+
+load      = max(netDraw, 0.001)            // never divide by zero
+endurance = stored / load                  // seconds of charge left
+rangeLeft = endurance * speed               // distance still reachable
+
+rate      = deriv(stored)                  // charging (+) or draining (-)
+rateBar   = remap(min(max(rate, -20), 20), -20, 20, 0, 100)
+peakDraw  = max(draw, memory(draw))        // peak-hold readout
+
+lowBatt    = threshold(0.15 - frac, 0)     // 1 below 15 % charge
+draining   = not(threshold(rate, -3))      // 1 when losing more than 3/s
+oneWarn    = xor(lowBatt, draining)        // steady lamp: single fault
+bothWarn   = min(lowBatt, draining)
+masterWarn = oneWarn + bothWarn * 2        // 0 none · 1 caution · 2 alarm`,
+  },
+  {
     name: "6-DOF stabilizer (complex)",
     src: `// Heavy mix: arithmetic, trig, stateful, logic, shaping. No sqrt block.
 altError  = targetAlt - altitude
