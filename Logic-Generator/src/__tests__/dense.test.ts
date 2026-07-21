@@ -120,6 +120,14 @@ describe("layoutDense", () => {
     }
   });
 
+  it("keeps cabling under the searched-shape budget", () => {
+    // Guards the shape search: before it, 6dof cabled 843 cells at gap 1 /
+    // aspect 1.3. Anything back near that means the search stopped scoring by
+    // cable cost (or stopped running). Loose enough to survive router tweaks.
+    const laid = layoutDense(compileFormula(SIXDOF));
+    expect(laid.cableCells.length).toBeLessThan(700);
+  });
+
   it("threads through runPipeline for both algorithms", () => {
     const dense = runPipeline(PD);
     const layered = runPipeline(PD, "layered");

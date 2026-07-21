@@ -1,16 +1,21 @@
 // Dense placement on the X-Z circuit plane.
 //
-// Three ideas over the layered grid:
+// The objective is FEWEST CABLE CELLS, not smallest bounding box. Four ideas
+// over the layered grid:
 //  1. ABUTMENT FUSION — a producer whose +X output face aligns with a consumer's
 //     -X input face is placed touching it. The game connects abutted ports
 //     directly, so the edge needs no cable at all.
-//  2. SHELF PACKING with Y-axis rotation — fused chains are packed onto shelves
-//     inside a roughly `ASPECT`-wide box; odd shelves are flipped 180° and fill
+//  2. CONNECTIVITY ORDER — chains are packed in DFS order over the chain graph,
+//     so a producer and its consumers land in adjacent shelf slots instead of
+//     wherever topo depth happened to scatter them.
+//  3. SHELF PACKING with Y-axis rotation — fused chains are packed onto shelves
+//     inside a box of the current aspect; odd shelves are flipped 180° and fill
 //     east→west (serpentine), and lone source blocks turn 90° toward far
 //     consumers so cables leave on the short side.
-//  3. AUTO-SPREAD — remaining edges go through the existing A* router; if any
-//     fail, the whole box is re-packed with one more cell of channel and retried.
-//     ponytail: global gap bump, per-region relaxation only if this proves coarse.
+//  4. SHAPE SEARCH — the whole pack+route runs once per (gap, aspect, order)
+//     candidate and the cheapest CABLING wins, under a wall-clock budget. A
+//     tighter box is not a shorter circuit: squeezed channels force the router
+//     to detour, and the detours cost more cells than the spread saves.
 //
 // Game constraint: logic blocks snap to a 2x grid — every block anchor keeps
 // even X and Z (fusion offsets, chain normalization, and shelf origins are all
@@ -37,12 +42,18 @@ import {
   type LaidOutGraph,
 } from "./layout";
 
-/** Width bias of the packed box (>1 = wider than tall; cables run mostly in X). */
-const ASPECT = 1.3;
-/** Routing attempts; every second retry adds one cell of channel everywhere.
- * ponytail: global gap bump + failed-first reorder; per-region relaxation only
- * if a real formula still falls back to the layered grid. */
-const MAX_ATTEMPTS = 15;
+/** Width biases of the packed box to try (>1 = wider than tall), best guess
+ * first so a budget cutoff still lands on a sane shape. */
+const ASPECTS = [1.3, 1.0, 1.8, 0.8, 2.5];
+/** Channel widths to try, in cells between packed chains. */
+const GAPS = [1, 2, 3, 4];
+/** Shape-search wall clock. One A* sweep is ~2s on a 100-block circuit and the
+ * grid is 40 shapes, so an unbounded search freezes the UI for over a minute.
+ * The budget is checked between shapes, so the first shape always completes and
+ * there is always a result. Shapes are ordered best-guess-first for that reason.
+ * ponytail: fixed budget, not adaptive — make it an option only if someone
+ * actually wants to trade a slow generate for a tighter circuit. */
+const SEARCH_BUDGET_MS = 2000;
 
 const key = (x: number, z: number) => `${x},${z}`;
 const ZERO = { x: 0, y: 0, z: 0 };
@@ -271,6 +282,44 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     return chains;
   };
 
+  /** Shelf order. Depth alone scatters linked chains across the box (ties broken
+   * by id), and every cable then pays that distance. Instead: walk the chain-level
+   * graph depth-first from the shallowest unvisited chain, emitting each chain's
+   * consumers right after it, so a producer and its consumers land in adjacent
+   * shelf slots. Depth still breaks ties, keeping the overall west→east flow.
+   * ponytail: greedy DFS, no crossing minimization — swap in barycenter passes
+   * only if measured cable cost stops improving. */
+  const orderChains = (chains: Chain[], dfs: boolean): Chain[] => {
+    const chainOf = new Map<string, number>();
+    chains.forEach((c, i) => c.blocks.forEach((b) => chainOf.set(b.node.id, i)));
+    const succ = chains.map(() => new Set<number>());
+    for (const e of graph.edges) {
+      if (fused.has(e.id)) continue;
+      const a = chainOf.get(e.from.blockId)!;
+      const b = chainOf.get(e.to.blockId)!;
+      if (a !== b) succ[a].add(b);
+    }
+    const byDepth = chains
+      .map((_, i) => i)
+      .sort(
+        (a, b) =>
+          chains[a].depth - chains[b].depth ||
+          chains[a].blocks[0].node.id.localeCompare(chains[b].blocks[0].node.id),
+      );
+    if (!dfs) return byDepth.map((i) => chains[i]);
+    const rank = new Map(byDepth.map((c, i) => [c, i]));
+    const seen = new Set<number>();
+    const out: Chain[] = [];
+    const visit = (i: number) => {
+      if (seen.has(i)) return;
+      seen.add(i);
+      out.push(chains[i]);
+      for (const s of [...succ[i]].sort((a, b) => rank.get(a)! - rank.get(b)!)) visit(s);
+    };
+    for (const i of byDepth) visit(i);
+    return out;
+  };
+
   /** Rigid whole-chain rotation about the chain origin (block centres move, each
    * block spins in place). Chains holding an `output` block never rotate — their
    * exporter base rot (ROT_UPRIGHT) doesn't cancel in the viewer like ROT_LOGIC. */
@@ -288,19 +337,18 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     return finishChain(chain.blocks);
   };
 
-  // --- Phases B–D: pack, rotate, route; widen channels until routable --------
+  // --- Phases B–D: pack, rotate, route — one candidate shape ----------------
   const attempt = (
     gap: number,
+    aspect: number,
+    dfs: boolean,
     priority: ReadonlySet<string>,
   ): { routed: RouteResult; blockCells: Cell[] } => {
-    const chains = buildChains();
-    chains.sort(
-      (a, b) => a.depth - b.depth || a.blocks[0].node.id.localeCompare(b.blocks[0].node.id),
-    );
+    const chains = orderChains(buildChains(), dfs);
     const area = chains.reduce((s, c) => s + (c.w + gap) * (c.h + gap), 0);
     const W = Math.max(
       Math.max(...chains.map((c) => c.w)),
-      Math.round(Math.sqrt(area * ASPECT)),
+      Math.round(Math.sqrt(area * aspect)),
     );
     let x = 0, shelfZ = 0, shelfH = 0, shelf = 0;
     for (let c of chains) {
@@ -419,14 +467,38 @@ export function layoutDense(graph: BlockGraph): LaidOutGraph {
     return { routed: route3DCables(routeEdges, blockCells), blockCells };
   };
 
-  // Sweep: gaps 1,1,2,2,3,3 — the repeat retries the same density with the
-  // failed edges promoted to the front before conceding a wider channel.
-  let result = attempt(1, new Set());
-  for (let a = 1; a < MAX_ATTEMPTS && result.routed.failed.length > 0; a++) {
-    // Only the LATEST failures get priority — an accumulated set dilutes it.
-    result = attempt(1 + (a >> 1), new Set(result.routed.failed));
+  // Sweep every candidate shape and keep the cheapest cabling, not the first
+  // that routes (see SHAPE SEARCH above). Each shape gets one failed-first retry
+  // — a port pocketed by its siblings' cables is only reachable before they
+  // route — before being dropped as unroutable.
+  let result: { routed: RouteResult; blockCells: Cell[] } | null = null;
+  let best = Infinity;
+  let snapshot: { cell: Cell; turns: number | undefined }[] = [];
+  const deadline = performance.now() + SEARCH_BUDGET_MS;
+  search: for (const dfs of [true, false]) {
+    for (const aspect of ASPECTS) {
+      for (const gap of GAPS) {
+        if (result && performance.now() > deadline) break search;
+        let r = attempt(gap, aspect, dfs, new Set());
+        if (r.routed.failed.length > 0)
+          r = attempt(gap, aspect, dfs, new Set(r.routed.failed));
+        if (r.routed.failed.length > 0 || r.routed.cells.length >= best) continue;
+        best = r.routed.cells.length;
+        result = r;
+        // attempt() mutates node cells in place, so capture this shape's
+        // placement before the next one overwrites it.
+        snapshot = graph.nodes.map((n) => ({ cell: n.cell!, turns: n.turns }));
+      }
+    }
   }
-  if (result.routed.failed.length > 0) {
+  if (result) {
+    graph.nodes.forEach((n, i) => {
+      n.cell = snapshot[i].cell;
+      n.turns = snapshot[i].turns;
+      n.rot = n.turns ? yawRot(ROT_LOGIC, n.turns) : undefined;
+    });
+  }
+  if (!result) {
     // Always-valid fallback; shed any turns the failed attempts left behind.
     for (const n of graph.nodes) {
       n.turns = undefined;
