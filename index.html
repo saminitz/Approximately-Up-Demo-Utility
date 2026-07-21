@@ -1,12 +1,246 @@
 <!doctype html>
-<html>
-  <head>
-    <meta http-equiv="refresh" content="0; url=./Whiteboard-Editor/Blueprint-Whiteboard-Editor.html" />
-  </head>
-  <body>
-    <p>
-      Redirecting to
-      <a href="./Whiteboard-Editor/Blueprint-Whiteboard-Editor.html">Blueprint Whiteboard Editor</a>...
-    </p>
-  </body>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Approximately Up — Demo Utility</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --panel: #161b22;
+      --panel-2: #1c2430;
+      --border: #2b3440;
+      --text: #e6edf3;
+      --muted: #8b98a5;
+      --accent: #58a6ff;
+      --accent-2: #7ee787;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1100px 620px at 78% -8%, rgba(88, 166, 255, 0.10), transparent 60%),
+        radial-gradient(900px 560px at 12% 112%, rgba(126, 231, 135, 0.06), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .wrap {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: clamp(1.5rem, 4vh, 3rem) clamp(1.25rem, 4vw, 2.5rem);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1.5rem, 4vh, 2.75rem);
+    }
+
+    header { flex: 0 0 auto; }
+
+    .eyebrow {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 10px var(--accent-2);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 4.6vw, 3rem);
+      font-weight: 650;
+      line-height: 1.04;
+      letter-spacing: -0.02em;
+    }
+
+    h1 .thin { color: var(--muted); font-weight: 500; }
+
+    .lede {
+      margin: 0.9rem 0 0;
+      max-width: 60ch;
+      color: var(--muted);
+      font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+      line-height: 1.55;
+      text-wrap: pretty;
+    }
+
+    .grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: clamp(1rem, 2vw, 1.5rem);
+    }
+
+    .tool {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      background: linear-gradient(180deg, var(--panel), #12161d);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: clamp(1.25rem, 2.6vh, 1.75rem);
+      overflow: hidden;
+      transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .tool:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px -22px rgba(88, 166, 255, 0.55);
+    }
+
+    .tool .tag {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      align-self: flex-start;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+    }
+
+    .tool h2 {
+      margin: 1.1rem 0 0;
+      font-size: clamp(1.15rem, 2vw, 1.5rem);
+      font-weight: 620;
+      letter-spacing: -0.01em;
+    }
+
+    .tool p {
+      margin: 0.6rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      text-wrap: pretty;
+    }
+
+    .tool .cta {
+      margin-top: auto;
+      padding-top: 1.4rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--accent);
+    }
+
+    .tool .cta .arrow {
+      transition: transform 0.18s ease;
+    }
+
+    .tool:hover .cta .arrow { transform: translateX(4px); }
+
+    .tool.logic .tag { color: var(--accent-2); border-color: rgba(126, 231, 135, 0.4); }
+    .tool.logic:hover { border-color: var(--accent-2); box-shadow: 0 18px 40px -22px rgba(126, 231, 135, 0.5); }
+    .tool.logic .cta { color: var(--accent-2); }
+
+    footer {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    footer .local {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    footer .local::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-2);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      background: var(--panel-2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: var(--text);
+    }
+
+    a.repo { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
+    a.repo:hover { color: var(--text); border-bottom-color: var(--border); }
+
+    @media (max-width: 720px) {
+      body { overflow: auto; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Approximately Up · Demo Utility</p>
+      <h1>Two small tools for<br /><span class="thin">building in </span>Approximately Up.</h1>
+      <p class="lede">Fan-made browser utilities for the game. Everything runs locally in your browser —
+        nothing is uploaded, nothing is stored.</p>
+    </header>
+
+    <main class="grid">
+      <a class="tool whiteboard" href="./Whiteboard-Editor/Blueprint-Whiteboard-Editor.html">
+        <span class="tag">Whiteboard</span>
+        <h2>Blueprint Whiteboard Editor</h2>
+        <p>Load a <code>.bpex</code> file, extract or replace the whiteboard drawing inside it, and export the
+          result as a PNG.</p>
+        <span class="cta">Open editor <span class="arrow">→</span></span>
+      </a>
+
+      <a class="tool logic" href="./Logic-Generator/">
+        <span class="tag">Logic</span>
+        <h2>Logic Generator</h2>
+        <p>Compile a formula into an in-game logic blueprint (<code>.bp</code>/<code>.bpmeta</code> ZIP) with a
+          live 3D circuit visualization.</p>
+        <span class="cta">Open generator <span class="arrow">→</span></span>
+      </a>
+    </main>
+
+    <footer>
+      <span class="local">Runs entirely in your browser</span>
+      <a class="repo" href="https://github.com/saminitz/Approximately-Up-Demo-Utility">saminitz/Approximately-Up-Demo-Utility</a>
+    </footer>
+  </div>
+</body>
+
 </html>
