@@ -20,7 +20,7 @@ import { buildBpMeta } from "../serializer/bpmeta";
 
 import { unpackGt } from "../serializer/gtCodec";
 
-import { ROT_LOGIC, ROT_UPRIGHT } from "../serializer/rotations";
+import { ROT_LOGIC } from "../serializer/rotations";
 
 import { PREFAB_TABLE } from "../serializer/prefabTable";
 
@@ -148,9 +148,7 @@ describe("serializer", () => {
 
         z: c.z,
 
-        // Sink terminals are flipped 180° so their port faces the cable.
-
-        rot: laid.nodes[i].op === "output" ? ROT_UPRIGHT : ROT_LOGIC,
+        rot: ROT_LOGIC,
 
       });
 

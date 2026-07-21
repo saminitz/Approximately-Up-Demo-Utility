@@ -191,8 +191,9 @@ describe("cable orientation (rot in _gt)", () => {
 
 
 
-  it("flips sink terminals 180° (rot 6) so their port faces the cable", () => {
-    // "A Generated.bp" was invalid: output block at rot 3 → port dangled.
+  it("writes every block at the base rot, sink terminals included", () => {
+    // Sinks used to be flipped to rot 6; that rotated the mesh 180° away from
+    // the +X cell the router cables into (and from what the viewer draws).
     const laid = layoutGraph(compileFormula("a = b + c"));
     const header = getReferenceHeader();
     const { bytes } = buildBp(laid, DEFAULT_BP_OPTIONS);
@@ -209,9 +210,9 @@ describe("cable orientation (rot in _gt)", () => {
       }
       off = dataStart + sizeof + 4;
     }
-    // 3 wireless + 1 adder; exactly the one output terminal is flipped to rot 6.
-    expect(blockRots.filter((r) => r === ROT_UPRIGHT)).toHaveLength(1);
-    expect(blockRots.filter((r) => r === ROT_LOGIC)).toHaveLength(3);
+    // 3 wireless + 1 adder, all at ROT_LOGIC — none flipped.
+    expect(blockRots.filter((r) => r === ROT_UPRIGHT)).toHaveLength(0);
+    expect(blockRots.filter((r) => r === ROT_LOGIC)).toHaveLength(4);
   });
 
   it("routes every edge of the 6-DOF stabilizer (retry sweep)", () => {

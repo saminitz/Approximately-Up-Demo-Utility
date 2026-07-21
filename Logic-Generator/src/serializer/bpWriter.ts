@@ -15,7 +15,7 @@ import type { LaidOutGraph } from "../layout/layout";
 import { BinaryWriter } from "./binaryWriter";
 import { packGt } from "./gtCodec";
 import { getReferenceHeader, findFieldOffset, type HeaderStruct } from "./header";
-import { ROT_LOGIC, ROT_UPRIGHT } from "./rotations";
+import { ROT_LOGIC } from "./rotations";
 import {
   CABLE_PREFAB,
   FIELD_HASH,
@@ -172,10 +172,11 @@ export function buildBp(
     const cell = node.cell ?? { x: 0, y: 0, z: 0 };
     const entry = PREFAB_TABLE[node.op];
     const struct = header.structs[entry.structIndex];
-    // Sink terminals reuse the source (wireless) prefab, whose port faces +X.
-    // As a sink the cable arrives from -X, so flip 180° (rot 6) or the port
-    // dangles and the blueprint is non-functional. ("A How it should be.bp")
-    const rot = node.rot ?? (node.op === "output" ? ROT_UPRIGHT : opts.rot);
+    // Sink terminals reuse the source (wireless) prefab and take the same base
+    // rot as every other block: port-map.json measures that prefab's port at
+    // +X/dx 2 with anchor rot 3, and `PORT_BY_OP.output` cables into that same
+    // +X cell — an extra 180° flip only rotated the mesh away from its cable.
+    const rot = node.rot ?? opts.rot;
     const gt = packGt({ x: cell.x, y: cell.y, z: cell.z, rot });
     const isWireless = entry.structIndex === PREFAB_TABLE.input.structIndex;
     writeRecord(w, struct, entry.hash, {
