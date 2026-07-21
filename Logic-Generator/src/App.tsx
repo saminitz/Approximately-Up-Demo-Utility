@@ -1,18 +1,15 @@
 import { useState } from "react";
 import "./App.css";
 import { Circuit3D } from "./components/Circuit3D";
-import type { PipelineResult } from "./pipeline";
-import { usePipeline } from "./usePipeline";
-import { DEMO_UNAVAILABLE, OPS, type OpKey } from "./formula/catalog";
-import { ALL_BLOCKS, DEBUG } from "./flags";
-import {
-  downloadBytes,
-  exportBlueprintZip,
-} from "./serializer/exportZip";
-import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
 import { FIXTURES } from "./fixtures";
+import { ALL_BLOCKS, DEBUG } from "./flags";
+import { DEMO_UNAVAILABLE, OPS, type OpKey } from "./formula/catalog";
 import type { LaidOutGraph } from "./layout/layout";
 import { DEFAULT_ALGO, LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
+import type { PipelineResult } from "./pipeline";
+import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
+import { downloadBytes, exportBlueprintZip } from "./serializer/exportZip";
+import { usePipeline } from "./usePipeline";
 
 const ALL_EXAMPLES: { name: string; src: string }[] = [
   {
@@ -100,12 +97,8 @@ const FUNCTIONS = Object.values(OPS)
   .sort();
 
 // Examples built on blocks the demo lacks would just fail to compile.
-const DISABLED_FN = new RegExp(
-  `\\b(${[...DEMO_UNAVAILABLE].flatMap((k) => OPS[k].fnNames ?? []).join("|")})\\s*\\(`,
-);
-const EXAMPLES = ALL_BLOCKS
-  ? ALL_EXAMPLES
-  : ALL_EXAMPLES.filter((e) => !DISABLED_FN.test(e.src));
+const DISABLED_FN = new RegExp(`\\b(${[...DEMO_UNAVAILABLE].flatMap((k) => OPS[k].fnNames ?? []).join("|")})\\s*\\(`);
+const EXAMPLES = ALL_BLOCKS ? ALL_EXAMPLES : ALL_EXAMPLES.filter((e) => !DISABLED_FN.test(e.src));
 
 export default function App() {
   const [src, setSrc] = useState(EXAMPLES[0].src);
@@ -145,7 +138,21 @@ export default function App() {
         <div className="section">
           <label className="title" htmlFor="formula">
             Formula
-          </label>
+          </label>{" "}
+          <details className="section syntax">
+            <summary>Syntax reference</summary>
+            <p className="footnote">
+              One assignment per line: <code>name = expression</code>. A name that is never assigned becomes an input
+              block, a name nothing else reads becomes an output. <code>//</code> starts a comment. Arguments after the
+              wired inputs (remap bounds, threshold level) must be literal numbers — they are stored on the block
+              itself.
+            </p>
+            <div className="chips">
+              {[...OPERATORS, ...FUNCTIONS].map((s) => (
+                <code key={s}>{s}</code>
+              ))}
+            </div>
+          </details>
           <textarea
             id="formula"
             className="formula-area"
@@ -161,28 +168,6 @@ export default function App() {
             ))}
           </div>
         </div>
-
-        <details className="section syntax">
-          <summary>Syntax reference</summary>
-          <p className="footnote">
-            One assignment per line: <code>name = expression</code>. A name that is
-            never assigned becomes an input block, a name nothing else reads becomes
-            an output. <code>//</code> starts a comment. Arguments after the wired
-            inputs (remap bounds, threshold level) must be literal numbers — they are
-            stored on the block itself.
-          </p>
-          <div className="chips">
-            {[...OPERATORS, ...FUNCTIONS].map((s) => (
-              <code key={s}>{s}</code>
-            ))}
-          </div>
-          {!ALL_BLOCKS && (
-            <p className="footnote">
-              Blocks the game’s demo does not ship are hidden. Add{" "}
-              <code>?allblocks</code> to the URL to use them anyway.
-            </p>
-          )}
-        </details>
 
         <div className="section">
           <label className="title">Layout</label>
@@ -241,49 +226,44 @@ export default function App() {
         </div>
 
         {DEBUG && (
-        <div className="section">
-          <label className="title">Calibration blueprints</label>
-          <div className="actions" style={{ flexWrap: "wrap" }}>
-            {FIXTURES.map((f) => (
-              <button
-                key={f.name}
-                className={fixture?.name === f.name ? "primary" : undefined}
-                onClick={() => setFixture({ name: f.name, laid: f.build() })}
-                title={`Show the "${f.name}" fixture in the viewer`}
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
-          {fixture && (
+          <div className="section">
+            <label className="title">Calibration blueprints</label>
             <div className="actions" style={{ flexWrap: "wrap" }}>
-              <button
-                className="primary"
-                onClick={() => doExport(fixture.laid, `Calib ${fixture.name}`, true)}
-              >
-                Download “{fixture.name}” ZIP
-              </button>
-              <button onClick={() => setFixture(null)}>Back to formula</button>
+              {FIXTURES.map((f) => (
+                <button
+                  key={f.name}
+                  className={fixture?.name === f.name ? "primary" : undefined}
+                  onClick={() => setFixture({ name: f.name, laid: f.build() })}
+                  title={`Show the "${f.name}" fixture in the viewer`}
+                >
+                  {f.name}
+                </button>
+              ))}
             </div>
-          )}
-          <p className="footnote">
-            Synthetic fixtures for diffing the viewer against a hand-built in-game copy.
-            Index is encoded by position: item i sits i steps along +X from the anchor,
-            bracketed by constants reading 0 (start) and 100 (end). Blocks and bare cable
-            cells are drawn at their real <code>_gt.rot</code>.
-          </p>
-          <p className="footnote">
-            <b>Axis markers</b> anchors at grid (0,0,0) and spells the axes with block
-            values: <code>0</code> = origin, <code>1</code> = +X, <code>2</code> = +Y (up),
-            <code>3</code> = +Z — each 4 cells out from the origin block.
-          </p>
-        </div>
+            {fixture && (
+              <div className="actions" style={{ flexWrap: "wrap" }}>
+                <button className="primary" onClick={() => doExport(fixture.laid, `Calib ${fixture.name}`, true)}>
+                  Download “{fixture.name}” ZIP
+                </button>
+                <button onClick={() => setFixture(null)}>Back to formula</button>
+              </div>
+            )}
+            <p className="footnote">
+              Synthetic fixtures for diffing the viewer against a hand-built in-game copy. Index is encoded by position:
+              item i sits i steps along +X from the anchor, bracketed by constants reading 0 (start) and 100 (end).
+              Blocks and bare cable cells are drawn at their real <code>_gt.rot</code>.
+            </p>
+            <p className="footnote">
+              <b>Axis markers</b> anchors at grid (0,0,0) and spells the axes with block values: <code>0</code> =
+              origin, <code>1</code> = +X, <code>2</code> = +Y (up),
+              <code>3</code> = +Z — each 4 cells out from the origin block.
+            </p>
+          </div>
         )}
 
         <p className="footnote">
-          Blueprint schema header taken verbatim from a real v{BLUEPRINT_GAME_VERSION}{" "}
-          reference file. Operator prefab hashes and cable geometry are partly
-          provisional — see the warnings above and the README.
+          Blueprint schema header taken verbatim from a real v{BLUEPRINT_GAME_VERSION} reference file. Operator prefab
+          hashes and cable geometry are partly provisional — see the warnings above and the README.
         </p>
       </aside>
 
@@ -323,13 +303,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function Diagnostics({
-  result,
-  running,
-}: {
-  result: PipelineResult | null;
-  running: boolean;
-}) {
+function Diagnostics({ result, running }: { result: PipelineResult | null; running: boolean }) {
   if (running) return <div className="diag">Compiling…</div>;
   if (!result) return null;
   if (!result.ok) {
@@ -343,8 +317,8 @@ function Diagnostics({
   if (result.unknownOps.length > 0) {
     return (
       <div className="diag warn">
-        <b>Provisional export.</b> These operators have unconfirmed prefab hashes
-        and will import as a generic block until pinned:
+        <b>Provisional export.</b> These operators have unconfirmed prefab hashes and will import as a generic block
+        until pinned:
         <ul>
           {result.unknownOps.map((op) => (
             <li key={op}>
