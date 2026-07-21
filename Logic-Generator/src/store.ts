@@ -105,6 +105,31 @@ export function isDirty(draft: Draft, saved: Blueprint[], examples: { name: stri
 export const collision = (name: string, saved: Blueprint[], selfId: string | null) =>
   saved.find((b) => b.id !== selfId && b.name.trim() === name.trim());
 
+const WIDTH_KEY = "logicgen.sidebarWidth";
+
+/** The old fixed sidebar width — now the floor the user cannot drag below. */
+export const MIN_SIDEBAR = 420;
+
+/** Never let the drag squeeze the viewer away, or exceed the window on a resize. */
+export const clampWidth = (w: number, viewport: number) =>
+  Math.min(Math.max(w, MIN_SIDEBAR), Math.max(MIN_SIDEBAR, viewport - 320));
+
+export function loadWidth(viewport: number): number {
+  try {
+    return clampWidth(Number(localStorage.getItem(WIDTH_KEY)) || MIN_SIDEBAR, viewport);
+  } catch {
+    return MIN_SIDEBAR;
+  }
+}
+
+export function saveWidth(w: number): void {
+  try {
+    localStorage.setItem(WIDTH_KEY, String(w));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function loadDraft(): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);

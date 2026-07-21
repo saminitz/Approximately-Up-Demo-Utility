@@ -1,11 +1,30 @@
 .app {
   display: grid;
+  /* Column width is driven inline by the resizer; 420px is the floor. */
   grid-template-columns: 420px 1fr;
   grid-template-rows: 100%;
   height: 100%;
 }
 
+/* Sits over the sidebar's right border. top/bottom:0 inside the scrolling
+   sidebar spans the whole scroll height, so it is grabbable anywhere. */
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -1px;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 10;
+}
+.resizer:hover,
+.resizer:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;

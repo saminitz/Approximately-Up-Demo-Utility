@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampWidth,
   collision,
   draftOf,
   exampleDraft,
@@ -68,6 +69,16 @@ describe("collision", () => {
     expect(collision("  Hover ", saved, null)?.id).toBe("id-2");
     expect(collision("Hover", saved, "id-2")).toBeUndefined();
     expect(collision("Fresh", saved, null)).toBeUndefined();
+  });
+});
+
+describe("clampWidth", () => {
+  it("holds the 420px floor and leaves room for the viewer", () => {
+    expect(clampWidth(300, 1600)).toBe(420);
+    expect(clampWidth(700, 1600)).toBe(700);
+    expect(clampWidth(1500, 1600)).toBe(1280);
+    // A window narrower than floor + viewer still cannot go under the floor.
+    expect(clampWidth(900, 600)).toBe(420);
   });
 });
 

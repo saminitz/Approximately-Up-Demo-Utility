@@ -14,13 +14,16 @@ import {
   deleteBlueprint,
   draftOf,
   exampleDraft,
+  clampWidth,
   isDirty,
   loadAll,
   loadDraft,
+  loadWidth,
   markWarned,
   newDraft,
   putBlueprint,
   saveDraft,
+  saveWidth,
   STORAGE_WARNING,
   wasWarned,
   type Blueprint,
@@ -131,8 +134,26 @@ export default function App() {
   const { src, name, folder, algo, emitCables } = draft;
   const patch = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
 
+  const [width, setWidth] = useState(() => loadWidth(window.innerWidth));
+
   useEffect(() => void loadAll().then(setSaved), []);
   useEffect(() => saveDraft(draft), [draft]);
+  useEffect(() => saveWidth(width), [width]);
+
+  // Drag the divider; the window listeners keep tracking even when the pointer
+  // outruns the 6px handle or leaves the window entirely.
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    const move = (ev: PointerEvent) => setWidth(clampWidth(startW + ev.clientX - startX, window.innerWidth));
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
 
   const dirty = isDirty(draft, saved, EXAMPLES);
   /** Nothing may replace the editor contents without the user's blessing. */
@@ -201,8 +222,20 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className="app" style={{ gridTemplateColumns: `${width}px 1fr` }}>
       <aside className="sidebar">
+        <div
+          className="resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          tabIndex={0}
+          onPointerDown={onResizeStart}
+          onKeyDown={(e) => {
+            const step = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
+            if (step) setWidth((w) => clampWidth(w + step, window.innerWidth));
+          }}
+        />
         <div className="brand">
           <h1>Logic Generator</h1>
           <p>Formula → Approximately Up blueprint compiler</p>
