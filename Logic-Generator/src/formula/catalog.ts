@@ -139,18 +139,17 @@ export const OPS: Record<OpKey, OpSpec> = {
  * the `?allblocks` URL flag is set (see `src/flags.ts`).
  */
 export const DEMO_UNAVAILABLE: ReadonlySet<OpKey> = new Set<OpKey>([
+  // No wave blocks at all in the demo — the whole trig category, atan2 included.
+  ...Object.values(OPS)
+    .filter((s) => s.category === "trig")
+    .map((s) => s.key),
   "abs",
-  "atan2",
   "condition",
-  "cos",
   "exp",
   "log",
   "mod",
   "pow",
-  "sin",
   "sqrt",
-  "tan",
-  "tanh",
 ]);
 
 /** Map a formula function name to its OpKey (or undefined if unknown). */
