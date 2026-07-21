@@ -61,6 +61,75 @@
   color: var(--muted);
 }
 
+/* Saved blueprints on top, built-in examples below the divider. */
+.bp-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 4px;
+}
+.bp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.bp-row.active .bp-open {
+  color: var(--accent);
+}
+.bp-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-open:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--panel);
+}
+.bp-open b {
+  color: var(--warn);
+}
+.bp-del {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--muted);
+  /* Opacity, not visibility — the button must stay reachable by keyboard. */
+  opacity: 0;
+}
+.bp-row:hover .bp-del,
+.bp-del:focus-visible {
+  opacity: 1;
+}
+.bp-del:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--danger);
+}
+.bp-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding-right: 8px;
+}
+.bp-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.footnote.error {
+  color: var(--danger);
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

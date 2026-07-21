@@ -1,14 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { Circuit3D } from "./components/Circuit3D";
 import { FIXTURES } from "./fixtures";
 import { ALL_BLOCKS, DEBUG } from "./flags";
 import { DEMO_UNAVAILABLE, OPS, type OpKey } from "./formula/catalog";
 import type { LaidOutGraph } from "./layout/layout";
-import { DEFAULT_ALGO, LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
+import { LAYOUT_ALGOS, type LayoutAlgo } from "./layout/strategies";
 import type { PipelineResult } from "./pipeline";
 import { BLUEPRINT_GAME_VERSION } from "./serializer/bpmeta";
 import { downloadBytes, exportBlueprintZip } from "./serializer/exportZip";
+import {
+  collision,
+  deleteBlueprint,
+  draftOf,
+  exampleDraft,
+  isDirty,
+  loadAll,
+  loadDraft,
+  markWarned,
+  newDraft,
+  putBlueprint,
+  saveDraft,
+  STORAGE_WARNING,
+  wasWarned,
+  type Blueprint,
+  type Draft,
+} from "./store";
 import { usePipeline } from "./usePipeline";
 
 const ALL_EXAMPLES: { name: string; src: string }[] = [
@@ -101,15 +118,71 @@ const DISABLED_FN = new RegExp(`\\b(${[...DEMO_UNAVAILABLE].flatMap((k) => OPS[k
 const EXAMPLES = ALL_BLOCKS ? ALL_EXAMPLES : ALL_EXAMPLES.filter((e) => !DISABLED_FN.test(e.src));
 
 export default function App() {
-  const [src, setSrc] = useState(EXAMPLES[0].src);
-  const [name, setName] = useState("My Logic");
-  const [folder, setFolder] = useState("80 Controllers");
-  const [emitCables, setEmitCables] = useState(true);
-  const [algo, setAlgo] = useState<LayoutAlgo>(DEFAULT_ALGO);
+  // The whole editor is one draft object so it can be persisted and compared
+  // against its saved record in one shot. Restored synchronously on first render.
+  const [draft, setDraft] = useState<Draft>(() => loadDraft() ?? exampleDraft("", EXAMPLES[0]));
+  const [saved, setSaved] = useState<Blueprint[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<string | null>(null);
   // A calibration fixture takes over the viewer while selected; the formula
   // pipeline keeps running underneath, untouched.
   const [fixture, setFixture] = useState<{ name: string; laid: LaidOutGraph } | null>(null);
+
+  const { src, name, folder, algo, emitCables } = draft;
+  const patch = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
+
+  useEffect(() => void loadAll().then(setSaved), []);
+  useEffect(() => saveDraft(draft), [draft]);
+
+  const dirty = isDirty(draft, saved, EXAMPLES);
+  /** Nothing may replace the editor contents without the user's blessing. */
+  const mayReplace = () =>
+    !dirty || confirm(`Discard unsaved changes${name.trim() ? ` to “${name.trim()}”` : ""}?`);
+
+  const onSave = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!wasWarned()) {
+      if (!confirm(STORAGE_WARNING)) return;
+      markWarned();
+    }
+    const ownId = draft.sourceKind === "saved" ? draft.sourceId : null;
+    const hit = collision(trimmed, saved, ownId);
+    if (hit && !confirm(`A blueprint named “${hit.name}” already exists. Replace it?`)) return;
+    const bp: Blueprint = {
+      id: ownId ?? hit?.id ?? crypto.randomUUID(),
+      name: trimmed,
+      folder,
+      src,
+      algo,
+      emitCables,
+      savedAt: Date.now(),
+    };
+    try {
+      await putBlueprint(bp);
+      // A rename onto another record's name replaces it; our own id survives.
+      if (hit && hit.id !== bp.id) await deleteBlueprint(hit.id);
+    } catch (e) {
+      setStatus(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    setSaved((prev) => [bp, ...prev.filter((b) => b.id !== bp.id && b.id !== hit?.id)]);
+    patch({ name: trimmed, sourceId: bp.id, sourceKind: "saved" });
+    setStatus(null);
+  };
+
+  const onDelete = async (bp: Blueprint) => {
+    if (!confirm(`Delete “${bp.name}”?`)) return;
+    try {
+      await deleteBlueprint(bp.id);
+    } catch (e) {
+      setStatus(`Could not delete: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    setSaved((prev) => prev.filter((b) => b.id !== bp.id));
+    // The editor keeps what it shows; it just no longer points at a record.
+    if (draft.sourceId === bp.id) patch({ sourceId: null, sourceKind: null });
+  };
 
   const { result, running } = usePipeline(src, algo);
   const shown = fixture ? fixture.laid : result?.ok ? result.laid : null;
@@ -136,6 +209,67 @@ export default function App() {
         </div>
 
         <div className="section">
+          <label className="title">Blueprints</label>
+          <div className="bp-list">
+            {saved.map((bp) => (
+              <div key={bp.id} className={`bp-row${draft.sourceId === bp.id ? " active" : ""}`}>
+                <button
+                  className="bp-open"
+                  onClick={() => mayReplace() && setDraft(draftOf(bp))}
+                  title={`Load “${bp.name}”${bp.folder ? ` (${bp.folder})` : ""}`}
+                >
+                  {bp.name}
+                  {draft.sourceId === bp.id && dirty && <b title="Unsaved changes"> •</b>}
+                </button>
+                <button className="bp-del" onClick={() => onDelete(bp)} title={`Delete “${bp.name}”`}>
+                  ×
+                </button>
+              </div>
+            ))}
+            {saved.length > 0 && <div className="bp-divider" />}
+            {EXAMPLES.map((ex) => (
+              <div key={ex.name} className={`bp-row${draft.sourceId === ex.name ? " active" : ""}`}>
+                <button
+                  className="bp-open"
+                  onClick={() => mayReplace() && setDraft(exampleDraft(folder, ex))}
+                  title={`Load the “${ex.name}” example`}
+                >
+                  {ex.name}
+                  {draft.sourceId === ex.name && dirty && <b title="Unsaved changes"> •</b>}
+                </button>
+                <span className="bp-tag">example</span>
+              </div>
+            ))}
+          </div>
+          <div className="actions">
+            <button onClick={() => mayReplace() && setDraft(newDraft(folder))} title="Start an empty formula">
+              New
+            </button>
+            {/* Anything not already backed by a record stays savable, even when the
+                only edit was one isDirty deliberately ignores (an example's folder). */}
+            <button
+              className="primary"
+              onClick={onSave}
+              disabled={!name.trim() || (draft.sourceKind === "saved" && !dirty)}
+              title={name.trim() ? "Save to this browser" : "Give the blueprint a name first"}
+            >
+              Save
+            </button>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              <span>Name</span>
+              <input value={name} onChange={(e) => patch({ name: e.target.value })} />
+            </label>
+            <label className="field">
+              <span>Folder</span>
+              <input value={folder} onChange={(e) => patch({ folder: e.target.value })} />
+            </label>
+          </div>
+          {status && <p className="footnote error">{status}</p>}
+        </div>
+
+        <div className="section">
           <label className="title" htmlFor="formula">
             Formula
           </label>{" "}
@@ -158,15 +292,8 @@ export default function App() {
             className="formula-area"
             spellCheck={false}
             value={src}
-            onChange={(e) => setSrc(e.target.value)}
+            onChange={(e) => patch({ src: e.target.value })}
           />
-          <div className="actions" style={{ flexWrap: "wrap" }}>
-            {EXAMPLES.map((ex) => (
-              <button key={ex.name} onClick={() => setSrc(ex.src)} title={`Load "${ex.name}"`}>
-                {ex.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="section">
@@ -176,7 +303,7 @@ export default function App() {
               <button
                 key={k}
                 className={algo === k ? "primary" : undefined}
-                onClick={() => setAlgo(k)}
+                onClick={() => patch({ algo: k })}
                 title={`Place blocks with the "${LAYOUT_ALGOS[k].label}" algorithm`}
               >
                 {LAYOUT_ALGOS[k].label}
@@ -200,20 +327,14 @@ export default function App() {
         )}
 
         <div className="section">
-          <label className="title">Blueprint</label>
-          <div className="field-row">
-            <label className="field">
-              <span>Name</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>Folder</span>
-              <input value={folder} onChange={(e) => setFolder(e.target.value)} />
-            </label>
-          </div>
+          <label className="title">Export</label>
           <div className="toggles">
             <label>
-              <input type="checkbox" checked={emitCables} onChange={(e) => setEmitCables(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={emitCables}
+                onChange={(e) => patch({ emitCables: e.target.checked })}
+              />
               Include visible cables (experimental)
             </label>
           </div>
